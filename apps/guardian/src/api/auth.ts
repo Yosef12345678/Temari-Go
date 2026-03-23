@@ -8,7 +8,6 @@ export async function login(body: LoginRequest): Promise<ApiEnvelope<LoginData>>
 }
 
 export async function refresh(body: RefreshRequest): Promise<ApiEnvelope<RefreshData>> {
-  // Backend responds: { success: true, data: { accessToken, ... } }
   return await request<ApiEnvelope<RefreshData>>('POST', '/auth/refresh', { auth: false, allowRefresh: false, body });
 }
 

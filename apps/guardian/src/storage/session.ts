@@ -8,7 +8,7 @@ export type SessionState = {
 };
 
 /**
- * Loads persisted tokens into the in-memory token store.
+ * Loads persisted tokens.
  */
 export async function bootstrapSession(): Promise<SessionState> {
   const tokens = await readTokens();
