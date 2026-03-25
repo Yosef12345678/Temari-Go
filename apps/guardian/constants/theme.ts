@@ -5,7 +5,6 @@
 
 import { Platform } from 'react-native';
 
-// Derived from the admin Next.js theme (`frontend/src/app/globals.css`) `oklch(...)` tokens,
 // converted to hex for React Native.
 const tintColorLight = '#3b82f6';
 const tintColorDark = '#e2e8f0';
