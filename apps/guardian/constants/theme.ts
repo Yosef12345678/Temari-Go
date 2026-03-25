@@ -5,25 +5,32 @@
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+// Derived from the admin Next.js theme (`frontend/src/app/globals.css`) `oklch(...)` tokens,
+// converted to hex for React Native.
+const tintColorLight = '#3b82f6';
+const tintColorDark = '#e2e8f0';
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
+    text: '#333333',
+    background: '#ffffff',
     tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
+    icon: '#6b7280',
+    tabIconDefault: '#6b7280',
     tabIconSelected: tintColorLight,
+    border: '#e5e7eb',
+    destructive: '#ef4444',
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
+    text: '#f8fafc',
+    background: '#020618',
     tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
+    icon: '#6a7282',
+    tabIconDefault: '#6a7282',
     tabIconSelected: tintColorDark,
+    // CSS `--border: oklch(1 0 0 / 10%)` approximated by alpha-blending over the dark background.
+    border: '#1b1f2f',
+    destructive: '#ff6467',
   },
 };
 

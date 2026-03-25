@@ -6,11 +6,16 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useInitPay } from '@/src/hooks/useBilling';
 import { useMe } from '@/src/hooks/useMe';
+import { useThemeColor } from '@/hooks/use-theme-color';
 
 export default function PayScreen() {
   const router = useRouter();
   const me = useMe();
   const initPay = useInitPay();
+  const tint = useThemeColor({}, 'tint');
+  const borderColor = useThemeColor({}, 'border');
+  const inputBackground = useThemeColor({}, 'background');
+  const errorColor = useThemeColor({}, 'destructive');
 
   const [student_id, setStudentId] = useState('');
   const [amount, setAmount] = useState('');
@@ -36,14 +41,19 @@ export default function PayScreen() {
 
       <View style={styles.field}>
         <ThemedText type="defaultSemiBold">Student ID</ThemedText>
-        <TextInput value={student_id} onChangeText={setStudentId} style={styles.input} placeholder="student id" />
+        <TextInput
+          value={student_id}
+          onChangeText={setStudentId}
+          style={[styles.input, { borderColor, backgroundColor: inputBackground }]}
+          placeholder="student id"
+        />
       </View>
       <View style={styles.field}>
         <ThemedText type="defaultSemiBold">Amount</ThemedText>
         <TextInput
           value={amount}
           onChangeText={setAmount}
-          style={styles.input}
+          style={[styles.input, { borderColor, backgroundColor: inputBackground }]}
           placeholder="100"
           keyboardType="numeric"
         />
@@ -53,20 +63,24 @@ export default function PayScreen() {
         <TextInput
           value={email}
           onChangeText={setEmail}
-          style={styles.input}
+          style={[styles.input, { borderColor, backgroundColor: inputBackground }]}
           placeholder="payer email"
           autoCapitalize="none"
         />
       </View>
       <View style={styles.field}>
         <ThemedText type="defaultSemiBold">Full name</ThemedText>
-        <TextInput value={full_name} onChangeText={setFullName} style={styles.input} placeholder="payer name" />
+        <TextInput
+          value={full_name}
+          onChangeText={setFullName}
+          style={[styles.input, { borderColor, backgroundColor: inputBackground }]}
+          placeholder="payer name"
+        />
       </View>
 
       {initPay.error ? (
-        <ThemedText style={styles.errorText}>
-          {(initPay.error as any)?.message ??
-            'Payment initiation failed. If you see 403, backend may still be admin-guarded.'}
+        <ThemedText style={[styles.errorText, { color: errorColor }]}>
+          {(initPay.error as any)?.message ?? 'Payment initiation failed. Please try again.'}
         </ThemedText>
       ) : null}
 
@@ -85,7 +99,7 @@ export default function PayScreen() {
             params: { url: res.checkout_url },
           });
         }}
-        style={[styles.button, !canSubmit && styles.buttonDisabled]}>
+        style={[styles.button, { backgroundColor: tint }, !canSubmit && styles.buttonDisabled]}>
         <ThemedText type="defaultSemiBold">{initPay.isPending ? 'Starting…' : 'Continue to checkout'}</ThemedText>
       </Pressable>
     </ThemedView>
@@ -97,20 +111,17 @@ const styles = StyleSheet.create({
   field: { gap: 8 },
   input: {
     borderWidth: 1,
-    borderColor: '#C7CBD1',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
   },
   button: {
     marginTop: 8,
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
-    backgroundColor: '#0a7ea4',
   },
   buttonDisabled: { opacity: 0.5 },
-  errorText: { color: '#B42318' },
+  errorText: { fontSize: 14 },
 });
 

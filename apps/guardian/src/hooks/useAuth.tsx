@@ -4,12 +4,13 @@ import type { AuthTokens } from '@/src/api/tokenStore';
 import { request } from '@/src/api/http';
 import { bootstrapSession, clearSession, setSession, type SessionState } from '@/src/storage/session';
 import type { ApiEnvelope } from '@/src/api/envelope';
-import type { LoginData } from '@/src/types/auth';
+import type { LoginData, RegisterRequest } from '@/src/types/auth';
 
 type AuthContextValue = {
   session: SessionState;
   restore: () => Promise<void>;
   login: (payload: { emailOrUsername: string; password: string }) => Promise<void>;
+  register: (payload: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -38,7 +39,29 @@ export function AuthProvider(props: { children: React.ReactNode }) {
       res?.data?.tokens?.accessToken && res?.data?.tokens?.refreshToken
         ? { accessToken: res.data.tokens.accessToken, refreshToken: res.data.tokens.refreshToken }
         : null;
-    if (!tokens) throw { status: 0, message: 'Login response missing tokens', details: res };
+    if (!tokens) throw { status: 0, message: 'We could not sign you in. Please try again.' };
+    await setSession(tokens);
+    setSessionState({ status: 'authenticated', tokens });
+  }, []);
+
+  const register = useCallback(async (payload: RegisterRequest) => {
+    // Backend: { success: true, data: { user, tokens: { accessToken, refreshToken } } }
+    const res = await request<ApiEnvelope<LoginData>>('POST', '/auth/register', {
+      auth: false,
+      body: {
+        name: payload.name.trim(),
+        email: payload.email.trim(),
+        password: payload.password,
+        phone_number: payload.phone_number?.trim() || undefined,
+        language_preference: payload.language_preference?.trim() || undefined,
+      },
+    });
+
+    const tokens: AuthTokens | null =
+      res?.data?.tokens?.accessToken && res?.data?.tokens?.refreshToken
+        ? { accessToken: res.data.tokens.accessToken, refreshToken: res.data.tokens.refreshToken }
+        : null;
+    if (!tokens) throw { status: 0, message: 'We could not create your account. Please try again.' };
     await setSession(tokens);
     setSessionState({ status: 'authenticated', tokens });
   }, []);
@@ -58,9 +81,10 @@ export function AuthProvider(props: { children: React.ReactNode }) {
       session,
       restore,
       login,
+      register,
       logout,
     }),
-    [session, restore, login, logout]
+    [session, restore, login, register, logout]
   );
 
   return <AuthContext.Provider value={value}>{props.children}</AuthContext.Provider>;

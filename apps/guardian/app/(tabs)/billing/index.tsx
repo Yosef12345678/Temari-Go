@@ -6,18 +6,23 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useInvoices, usePaymentsByParent } from '@/src/hooks/useBilling';
 import { useMe } from '@/src/hooks/useMe';
+import { useThemeColor } from '@/hooks/use-theme-color';
 
 export default function BillingTab() {
   const me = useMe();
   const invoices = useInvoices({ limit: 50, offset: 0 });
   const payments = usePaymentsByParent(me.data?.id ?? '', { limit: 20, offset: 0 });
+  const borderColor = useThemeColor({}, 'border');
+  const cardBackground = useThemeColor({}, 'background');
+  const tint = useThemeColor({}, 'tint');
+  const errorColor = useThemeColor({}, 'destructive');
 
   return (
     <ThemedView style={styles.container}>
       <View style={styles.headerRow}>
         <ThemedText type="title">Billing</ThemedText>
         <Link href="/billing/pay" asChild>
-          <Pressable style={styles.button}>
+          <Pressable style={[styles.button, { backgroundColor: tint }]}>
             <ThemedText type="defaultSemiBold">Pay</ThemedText>
           </Pressable>
         </Link>
@@ -26,13 +31,15 @@ export default function BillingTab() {
       <ThemedText type="subtitle">Invoices</ThemedText>
       {invoices.isLoading ? <ThemedText>Loading invoices…</ThemedText> : null}
       {invoices.error ? (
-        <ThemedText style={styles.errorText}>{(invoices.error as any)?.message ?? 'Failed to load'}</ThemedText>
+        <ThemedText style={[styles.errorText, { color: errorColor }]}>
+          {(invoices.error as any)?.message ?? 'Failed to load'}
+        </ThemedText>
       ) : null}
       <FlatList
         data={invoices.data?.data ?? []}
         keyExtractor={(item: any) => String(item.id)}
         renderItem={({ item }: any) => (
-          <View style={styles.card}>
+          <View style={[styles.card, { borderColor, backgroundColor: cardBackground }]}>
             <View style={styles.row}>
               <ThemedText type="defaultSemiBold">#{String(item.id)}</ThemedText>
               <ThemedText>{String(item.status ?? '-')}</ThemedText>
@@ -51,13 +58,15 @@ export default function BillingTab() {
       </ThemedText>
       {payments.isLoading ? <ThemedText>Loading payments…</ThemedText> : null}
       {payments.error ? (
-        <ThemedText style={styles.errorText}>{(payments.error as any)?.message ?? 'Failed to load'}</ThemedText>
+        <ThemedText style={[styles.errorText, { color: errorColor }]}>
+          {(payments.error as any)?.message ?? 'Failed to load'}
+        </ThemedText>
       ) : null}
       <FlatList
         data={payments.data?.data ?? []}
         keyExtractor={(item: any) => String(item.id)}
         renderItem={({ item }: any) => (
-          <View style={styles.card}>
+          <View style={[styles.card, { borderColor, backgroundColor: cardBackground }]}>
             <View style={styles.row}>
               <ThemedText type="defaultSemiBold">{String(item.status ?? '-')}</ThemedText>
               <ThemedText>{String(item.amount ?? '-')} {String(item.currency ?? '')}</ThemedText>
@@ -76,8 +85,6 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   card: {
     borderWidth: 1,
-    borderColor: '#E3E6EA',
-    backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 14,
     gap: 6,
@@ -89,8 +96,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 12,
     alignItems: 'center',
-    backgroundColor: '#0a7ea4',
   },
-  errorText: { color: '#B42318' },
+  errorText: { fontSize: 14 },
 });
 

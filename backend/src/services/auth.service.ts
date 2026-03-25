@@ -4,7 +4,13 @@ import { hashPassword, comparePassword } from '../utils/hash';
 import { signAccessToken, signRefreshToken, verifyRefreshToken, signPasswordResetToken, verifyPasswordResetToken } from '../utils/jwt';
 import { sendPasswordResetEmail } from '../utils/email';
 
-type RegisterInput = { name: string; email: string; password: string };
+type RegisterInput = {
+	name: string;
+	email: string;
+	password: string;
+	phone_number?: string | null;
+	language_preference?: string | null;
+};
 type LoginInput = { email: string; password: string };
 type ForgotPasswordInput = { email: string };
 type ResetPasswordInput = { token: string; password: string };
@@ -31,12 +37,19 @@ export class AuthService {
 			throw { status: 400, code: 'EMAIL_IN_USE', message: 'Email already in use.' };
 		}
 		const password = await hashPassword(input.password);
-		// default role: user
-		const role = await Role.findOne({ where: { name: 'user' } });
-		const user = await User.create({ name: input.name, email: input.email, password, role_id: role?.id });
+		// Default role for Guardian (parent registration).
+		const role = await Role.findOne({ where: { name: 'parent' } });
+		const user = await User.create({
+			name: input.name,
+			email: input.email,
+			password,
+			role_id: role?.id,
+			phone_number: input.phone_number ?? null,
+			language_preference: input.language_preference,
+		});
 		
 		// Generate tokens for the new user
-		const roleName = role?.name || 'user';
+		const roleName = role?.name || 'parent';
 		const { token: accessToken, expiresIn: accessTokenExpiresIn } = signAccessToken({ id: String(user.id), email: user.email, role: roleName });
 		const { token: refreshToken, expiresIn: refreshTokenExpiresIn } = signRefreshToken({ id: String(user.id), email: user.email, role: roleName });
 		await RefreshToken.create({ token: refreshToken, expiry_date: parseRefreshExpiryToDate(), user_id: user.id as number });

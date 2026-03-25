@@ -28,18 +28,53 @@ dotenv.config();
 
 const app = express();
 
-app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    // Expo web dev server (common)
-    'http://localhost:8081',
-    'http://127.0.0.1:8081',
-  ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+const isDev = process.env.NODE_ENV !== 'production';
+const corsOrigins = (process.env.CORS_ORIGINS ?? '')
+	.split(',')
+	.map((s) => s.trim())
+	.filter(Boolean);
+
+function isExpoDevOrigin(origin: string): boolean {
+	// Expo web dev server commonly runs on ports like 8081 and 19006.
+	// Allow localhost + common private-network IPs on any port in dev, but keep it scoped.
+	if (!/^https?:\/\//.test(origin)) return false;
+	if (!isDev) return false;
+	return new RegExp(
+		'^http:\\/\\/(localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0|10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|192\\.168\\.\\d{1,3}\\.\\d{1,3}|172\\.(1[6-9]|2\\d|3[0-1])\\.\\d{1,3}\\.\\d{1,3}):\\d+$'
+	).test(origin);
+}
+
+app.use(
+	cors({
+		origin: (origin, cb) => {
+			// Native apps often don't send an Origin header.
+			if (!origin) return cb(null, true);
+
+			// Explicit allow-list from env.
+			if (corsOrigins.includes(origin)) return cb(null, true);
+
+			// Default web/dev origins (kept for backward compatibility).
+			if (
+				origin === 'http://localhost:3000' ||
+				origin === 'http://127.0.0.1:3000' ||
+				origin === 'http://localhost:8081' ||
+				origin === 'http://127.0.0.1:8081'
+			) {
+				return cb(null, true);
+			}
+
+			// Expo dev server (typically localhost on a port)
+			if (isExpoDevOrigin(origin)) return cb(null, true);
+
+			// Block unknown origins in production; allow in dev only for local origins.
+			return cb(null, false);
+		},
+		credentials: true,
+		methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+		allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+		optionsSuccessStatus: 204,
+	})
+);
 app.use(express.json());
 app.use(cookieParser());
 

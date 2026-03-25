@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -7,11 +8,17 @@ import { useAuth } from '@/src/hooks/useAuth';
 import { useMe, useUpdateMe } from '@/src/hooks/useMe';
 import { getMissingParentFields } from '@/src/utils/profileCompletion';
 import { validateLanguagePreference, validatePhone } from '@/src/utils/validators';
+import { useThemeColor } from '@/hooks/use-theme-color';
 
 export default function ProfileCompletionScreen() {
+  const router = useRouter();
   const { logout } = useAuth();
   const meQuery = useMe();
   const updateMe = useUpdateMe();
+  const tint = useThemeColor({}, 'tint');
+  const borderColor = useThemeColor({}, 'border');
+  const inputBackground = useThemeColor({}, 'background');
+  const errorColor = useThemeColor({}, 'destructive');
 
   const me = meQuery.data;
   const [name, setName] = useState('');
@@ -34,56 +41,74 @@ export default function ProfileCompletionScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="title">Complete your profile</ThemedText>
+      <ThemedText type="title">Update your details</ThemedText>
       <ThemedText>
-        Required before you can continue: {missing.length ? missing.join(', ') : 'none'}
+        Optional: add the details below{missing.length ? ` (${missing.join(', ')})` : '.'}
       </ThemedText>
 
       <View style={styles.field}>
-        <ThemedText type="defaultSemiBold">Name *</ThemedText>
-        <TextInput value={name} onChangeText={setName} placeholder="Full name" style={styles.input} />
-        {nameError ? <ThemedText style={styles.errorText}>{nameError}</ThemedText> : null}
+        <ThemedText type="defaultSemiBold">Name</ThemedText>
+        <TextInput
+          value={name}
+          onChangeText={setName}
+          placeholder="Full name"
+          style={[styles.input, { borderColor, backgroundColor: inputBackground }]}
+        />
+        {nameError ? <ThemedText style={[styles.errorText, { color: errorColor }]}>{nameError}</ThemedText> : null}
       </View>
 
       <View style={styles.field}>
-        <ThemedText type="defaultSemiBold">Phone number *</ThemedText>
+        <ThemedText type="defaultSemiBold">Phone number</ThemedText>
         <TextInput
           value={phone_number}
           onChangeText={setPhoneNumber}
           placeholder="+2519..."
           keyboardType="phone-pad"
-          style={styles.input}
+          style={[styles.input, { borderColor, backgroundColor: inputBackground }]}
         />
-        {phoneError ? <ThemedText style={styles.errorText}>{phoneError}</ThemedText> : null}
+        {phoneError ? <ThemedText style={[styles.errorText, { color: errorColor }]}>{phoneError}</ThemedText> : null}
       </View>
 
       <View style={styles.field}>
-        <ThemedText type="defaultSemiBold">Language preference *</ThemedText>
+        <ThemedText type="defaultSemiBold">Language preference</ThemedText>
         <TextInput
           value={language_preference}
           onChangeText={setLanguagePreference}
           placeholder="e.g. en"
           autoCapitalize="none"
-          style={styles.input}
+          style={[styles.input, { borderColor, backgroundColor: inputBackground }]}
         />
-        {langError ? <ThemedText style={styles.errorText}>{langError}</ThemedText> : null}
+        {langError ? <ThemedText style={[styles.errorText, { color: errorColor }]}>{langError}</ThemedText> : null}
       </View>
 
       {updateMe.error ? (
-        <ThemedText style={styles.errorText}>{(updateMe.error as any)?.message ?? 'Update failed'}</ThemedText>
+        <ThemedText style={[styles.errorText, { color: errorColor }]}>
+          {(updateMe.error as any)?.message ?? 'Update failed'}
+        </ThemedText>
       ) : null}
 
       <Pressable
         disabled={!canSave}
         onPress={async () => {
-          await updateMe.mutateAsync({
-            name: name.trim(),
-            phone_number: phone_number.trim(),
-            language_preference: language_preference.trim(),
-          });
+          try {
+            await updateMe.mutateAsync({
+              name: name.trim(),
+              phone_number: phone_number.trim(),
+              language_preference: language_preference.trim(),
+            });
+            router.replace('/(tabs)/children' as any);
+          } catch {
+            // error is rendered below
+          }
         }}
-        style={[styles.button, !canSave && styles.buttonDisabled]}>
-        <ThemedText type="defaultSemiBold">{updateMe.isPending ? 'Saving…' : 'Save & continue'}</ThemedText>
+        style={[styles.button, { backgroundColor: tint }, !canSave && styles.buttonDisabled]}>
+        <ThemedText type="defaultSemiBold">{updateMe.isPending ? 'Saving…' : 'Save'}</ThemedText>
+      </Pressable>
+
+      <Pressable onPress={() => router.replace('/(tabs)/children' as any)} style={[styles.secondaryButton, { borderColor }]}>
+        <ThemedText type="defaultSemiBold" style={{ color: tint }}>
+          Continue to home
+        </ThemedText>
       </Pressable>
 
       <Pressable onPress={() => void logout()} style={styles.linkButton}>
@@ -98,21 +123,25 @@ const styles = StyleSheet.create({
   field: { gap: 8 },
   input: {
     borderWidth: 1,
-    borderColor: '#C7CBD1',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
   },
   button: {
     marginTop: 8,
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
-    backgroundColor: '#0a7ea4',
+  },
+  secondaryButton: {
+    marginTop: 10,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
   },
   buttonDisabled: { opacity: 0.5 },
   linkButton: { alignItems: 'center', paddingVertical: 10 },
-  errorText: { color: '#B42318' },
+  errorText: { fontSize: 14 },
 });
 

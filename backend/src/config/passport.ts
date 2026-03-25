@@ -34,8 +34,8 @@ passport.use(new GoogleStrategy({
       return done(null, user);
     }
     
-    // Create new user
-    const role = await Role.findOne({ where: { name: 'user' } });
+    // Create new user (Guardian app uses the "parent" role)
+    const role = await Role.findOne({ where: { name: 'parent' } });
     const newUser = await User.create({
       name: profile.displayName,
       email: profile.emails?.[0]?.value,

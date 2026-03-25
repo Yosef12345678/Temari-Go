@@ -7,7 +7,6 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AppProviders } from '@/src/hooks/AppProviders';
 import { useAuth } from '@/src/hooks/useAuth';
 import { useMe } from '@/src/hooks/useMe';
-import { isParentProfileComplete } from '@/src/utils/profileCompletion';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { registerPushTokenOncePerBoot } from '@/src/utils/push/registerPushToken';
@@ -23,12 +22,10 @@ function AuthGate() {
   const meQuery = useMe();
 
   const inAuthGroup = segments[0] === '(auth)';
-  const inOnboardingGroup = segments[0] === '(onboarding)';
+  const inTabsGroup = segments[0] === '(tabs)';
 
   // While restoring session or fetching /users/me, show a lightweight spinner.
-  const isBusy =
-    session.status === 'unknown' ||
-    (session.status === 'authenticated' && (meQuery.isLoading || meQuery.isFetching));
+  const isBusy = session.status === 'unknown' || (session.status === 'authenticated' && (meQuery.isLoading || meQuery.isFetching));
 
   useEffect(() => {
     if (session.status === 'unknown') return;
@@ -39,20 +36,12 @@ function AuthGate() {
     }
 
     // authenticated
-    if (!meQuery.data) return;
-
     // Best-effort device registration (push token)
     void registerPushTokenOncePerBoot();
 
-    const complete = isParentProfileComplete(meQuery.data);
-    if (!complete) {
-      if (!inOnboardingGroup) router.replace('/(onboarding)/profile' as any);
-      return;
-    }
-
-    // profile complete
-    if (inAuthGroup || inOnboardingGroup) router.replace('/(tabs)/children' as any);
-  }, [session.status, inAuthGroup, inOnboardingGroup, router, meQuery.data]);
+    // Do not enforce profile completion: if logged in, go to home.
+    if (!inTabsGroup) router.replace('/(tabs)/children' as any);
+  }, [session.status, inAuthGroup, inTabsGroup, router]);
 
   if (isBusy) {
     return (

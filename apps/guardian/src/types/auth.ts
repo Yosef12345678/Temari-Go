@@ -3,6 +3,14 @@ export type LoginRequest = {
   password: string;
 };
 
+export type RegisterRequest = {
+  name: string;
+  email: string;
+  password: string;
+  phone_number?: string;
+  language_preference?: string;
+};
+
 export type AuthTokens = {
   accessToken: string;
   refreshToken: string;

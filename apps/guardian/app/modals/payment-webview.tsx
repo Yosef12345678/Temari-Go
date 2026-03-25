@@ -5,10 +5,12 @@ import { WebView } from 'react-native-webview';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useThemeColor } from '@/hooks/use-theme-color';
 
 export default function PaymentWebViewModal() {
   const router = useRouter();
   const params = useLocalSearchParams<{ url?: string }>();
+  const borderColor = useThemeColor({}, 'border');
 
   const url = useMemo(() => {
     const u = params.url;
@@ -17,7 +19,7 @@ export default function PaymentWebViewModal() {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: borderColor }]}>
         <ThemedText type="defaultSemiBold">Chapa Checkout</ThemedText>
         <Pressable onPress={() => router.back()} style={styles.closeButton}>
           <ThemedText type="link">Close</ThemedText>
@@ -44,7 +46,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: '#E3E6EA',
   },
   closeButton: { paddingVertical: 6, paddingHorizontal: 10 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },

@@ -7,7 +7,6 @@ export type ApiError = {
   status: number;
   message: string;
   code?: string;
-  details?: unknown;
 };
 
 export type RequestOptions = {
@@ -33,13 +32,68 @@ function toQueryString(query: RequestOptions['query']): string {
   return str ? `?${str}` : '';
 }
 
+function extractBackendError(data: unknown): { code?: string; status?: number } {
+  // Backend error middleware responds with:
+  // { success: false, error: { code, message, details } }
+  if (typeof data !== 'object' || !data) return {};
+
+  const maybe = data as { code?: unknown; status?: unknown; error?: any; message?: any; msg?: any };
+
+  const code =
+    (typeof maybe.code === 'string' && maybe.code) ||
+    (typeof maybe.error?.code === 'string' && maybe.error.code) ||
+    undefined;
+
+  const statusFromPayload =
+    (typeof maybe.status === 'number' && maybe.status) ||
+    (typeof maybe.error?.status === 'number' && maybe.error.status) ||
+    undefined;
+
+  return { code, status: statusFromPayload };
+}
+
+function toUserMessage(status: number, code?: string): string {
+  // Client-side app: keep messages user-friendly and avoid leaking backend/technical details.
+  if (code) {
+    switch (code) {
+      case 'INVALID_CREDENTIALS':
+        return 'Incorrect email or password.';
+      case 'SOCIAL_AUTH_USER':
+      case 'EMAIL_IN_USE_SOCIAL':
+        return 'Please sign in using the correct method.';
+      case 'EMAIL_IN_USE':
+        return 'An account with this email already exists.';
+      case 'VALIDATION_ERROR':
+        return 'Please check your details and try again.';
+      case 'UNAUTHORIZED':
+      case 'INVALID_TOKEN':
+      case 'TOKEN_EXPIRED':
+        return 'Your session has expired. Please sign in again.';
+      case 'FORBIDDEN':
+        return 'You do not have permission to do that.';
+      default:
+        break;
+    }
+  }
+
+  if (status >= 500) return 'Something went wrong. Please try again later.';
+  if (status === 400) return 'Please check your input and try again.';
+  if (status === 401) return 'Your session has expired. Please sign in again.';
+  if (status === 403) return 'You do not have permission to do that.';
+  if (status === 404) return 'The requested item was not found.';
+  if (status === 409) return 'Unable to complete your request. Please try again.';
+  return 'Unable to complete your request. Please try again.';
+}
+
 function normalizeError(status: number, data: any): ApiError {
-  const message =
-    (typeof data === 'object' && data && (data.message || data.error || data.msg)) ||
-    (typeof data === 'string' && data) ||
-    'Request failed';
-  const code = typeof data === 'object' && data ? (data.code as string | undefined) : undefined;
-  return { status, message: String(message), code, details: data };
+  const extracted = extractBackendError(data);
+  const code = extracted.code;
+
+  return {
+    status,
+    code,
+    message: toUserMessage(status, code),
+  };
 }
 
 export async function request<T>(
@@ -92,10 +146,10 @@ export async function request<T>(
     throw normalizeError(res.status, data);
   } catch (e: any) {
     if (e?.name === 'AbortError') {
-      throw { status: 0, message: 'Request timed out' } satisfies ApiError;
+      throw { status: 0, message: 'Connection timed out. Please try again.' } satisfies ApiError;
     }
     if (typeof e?.status === 'number' && typeof e?.message === 'string') throw e as ApiError;
-    throw { status: 0, message: 'Network error', details: e } satisfies ApiError;
+    throw { status: 0, message: 'Unable to connect. Please check your internet connection and try again.' } satisfies ApiError;
   } finally {
     clearTimeout(timeout);
   }

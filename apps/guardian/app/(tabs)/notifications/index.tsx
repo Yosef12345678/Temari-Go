@@ -4,10 +4,15 @@ import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useMarkNotificationRead, useNotifications } from '@/src/hooks/useNotifications';
+import { useThemeColor } from '@/hooks/use-theme-color';
 
 export default function NotificationsTab() {
   const notifications = useNotifications({ limit: 50, offset: 0 });
   const markRead = useMarkNotificationRead();
+  const borderColor = useThemeColor({}, 'border');
+  const cardBackground = useThemeColor({}, 'background');
+  const tint = useThemeColor({}, 'tint');
+  const errorColor = useThemeColor({}, 'destructive');
 
   return (
     <ThemedView style={styles.container}>
@@ -15,7 +20,7 @@ export default function NotificationsTab() {
 
       {notifications.isLoading ? <ThemedText>Loading…</ThemedText> : null}
       {notifications.error ? (
-        <ThemedText style={styles.errorText}>
+        <ThemedText style={[styles.errorText, { color: errorColor }]}>
           {(notifications.error as any)?.message ?? 'Failed to load notifications'}
         </ThemedText>
       ) : null}
@@ -25,7 +30,7 @@ export default function NotificationsTab() {
         keyExtractor={(item: any) => String(item.id)}
         contentContainerStyle={{ paddingVertical: 8 }}
         renderItem={({ item }: any) => (
-          <View style={styles.card}>
+          <View style={[styles.card, { borderColor, backgroundColor: cardBackground }]}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
               <ThemedText type="defaultSemiBold">{item.title ?? item.type ?? 'Notification'}</ThemedText>
               <ThemedText>{item.read ? 'Read' : 'Unread'}</ThemedText>
@@ -35,7 +40,7 @@ export default function NotificationsTab() {
               <Pressable
                 disabled={markRead.isPending}
                 onPress={() => markRead.mutate(String(item.id))}
-                style={styles.button}>
+                style={[styles.button, { backgroundColor: tint }]}>
                 <ThemedText type="defaultSemiBold">Mark as read</ThemedText>
               </Pressable>
             ) : null}
@@ -53,8 +58,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, gap: 12 },
   card: {
     borderWidth: 1,
-    borderColor: '#E3E6EA',
-    backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 14,
     gap: 10,
@@ -64,8 +67,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 12,
     alignItems: 'center',
-    backgroundColor: '#0a7ea4',
   },
-  errorText: { color: '#B42318' },
+  errorText: { fontSize: 14 },
 });
 

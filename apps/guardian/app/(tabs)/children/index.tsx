@@ -4,18 +4,25 @@ import { Link } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { AppBrand } from '@/components/app-brand';
 import { useStudentsList } from '@/src/hooks/useStudents';
+import { useThemeColor } from '@/hooks/use-theme-color';
 
 export default function ChildrenTab() {
   const students = useStudentsList();
+  const borderColor = useThemeColor({}, 'border');
+  const cardBackground = useThemeColor({}, 'background');
+  const errorColor = useThemeColor({}, 'destructive');
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="title">Your children</ThemedText>
+      <AppBrand subtitle="Your children" />
 
       {students.isLoading ? <ThemedText>Loading…</ThemedText> : null}
       {students.error ? (
-        <ThemedText style={styles.errorText}>{(students.error as any)?.message ?? 'Failed to load'}</ThemedText>
+        <ThemedText style={[styles.errorText, { color: errorColor }]}>
+          {(students.error as any)?.message ?? 'Failed to load'}
+        </ThemedText>
       ) : null}
 
       <FlatList
@@ -24,7 +31,7 @@ export default function ChildrenTab() {
         contentContainerStyle={{ paddingVertical: 8 }}
         renderItem={({ item }: any) => (
           <Link href={`/children/${item.id}`} asChild>
-            <Pressable style={styles.card}>
+            <Pressable style={[styles.card, { borderColor, backgroundColor: cardBackground }]}>
               <ThemedText type="defaultSemiBold">{item.full_name ?? 'Student'}</ThemedText>
               <View style={{ flexDirection: 'row', gap: 12 }}>
                 <ThemedText>Grade: {String(item.grade ?? '-')}</ThemedText>
@@ -45,13 +52,11 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, gap: 12 },
   card: {
     borderWidth: 1,
-    borderColor: '#E3E6EA',
-    backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 14,
     gap: 6,
     marginBottom: 10,
   },
-  errorText: { color: '#B42318' },
+  errorText: { fontSize: 14 },
 });
 

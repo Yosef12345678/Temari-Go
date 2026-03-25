@@ -1,12 +1,20 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { AppBrand } from '@/components/app-brand';
 import { useAuth } from '@/src/hooks/useAuth';
+import { useThemeColor } from '@/hooks/use-theme-color';
 
 export default function LoginScreen() {
+  const router = useRouter();
   const { login } = useAuth();
+  const tint = useThemeColor({}, 'tint');
+  const borderColor = useThemeColor({}, 'border');
+  const inputBackground = useThemeColor({}, 'background');
+  const errorColor = useThemeColor({}, 'destructive');
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -19,7 +27,7 @@ export default function LoginScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="title">Parent Login</ThemedText>
+      <AppBrand subtitle="Parent Login" />
 
       <View style={styles.field}>
         <ThemedText type="defaultSemiBold">Email or Username</ThemedText>
@@ -29,7 +37,7 @@ export default function LoginScreen() {
           autoCapitalize="none"
           autoCorrect={false}
           placeholder="email@example.com"
-          style={styles.input}
+          style={[styles.input, { borderColor, backgroundColor: inputBackground }]}
         />
       </View>
 
@@ -40,11 +48,11 @@ export default function LoginScreen() {
           onChangeText={setPassword}
           secureTextEntry
           placeholder="••••••••"
-          style={styles.input}
+          style={[styles.input, { borderColor, backgroundColor: inputBackground }]}
         />
       </View>
 
-      {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
+      {error ? <ThemedText style={[styles.errorText, { color: errorColor }]}>{error}</ThemedText> : null}
 
       <Pressable
         disabled={!canSubmit}
@@ -59,8 +67,12 @@ export default function LoginScreen() {
             setSubmitting(false);
           }
         }}
-        style={[styles.button, !canSubmit && styles.buttonDisabled]}>
+        style={[styles.button, { backgroundColor: tint }, !canSubmit && styles.buttonDisabled]}>
         <ThemedText type="defaultSemiBold">{submitting ? 'Signing in…' : 'Sign in'}</ThemedText>
+      </Pressable>
+
+      <Pressable onPress={() => router.push('/(auth)/register' as any)} style={styles.linkButton}>
+        <ThemedText type="link">New here? Create an account</ThemedText>
       </Pressable>
     </ThemedView>
   );
@@ -78,24 +90,25 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#C7CBD1',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
   },
   button: {
     marginTop: 8,
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
-    backgroundColor: '#0a7ea4',
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   errorText: {
-    color: '#B42318',
+    fontSize: 14,
+  },
+  linkButton: {
+    alignItems: 'center',
+    paddingVertical: 10,
   },
 });
 
