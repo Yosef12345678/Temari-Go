@@ -31,11 +31,11 @@ function setAuthCookies(res: Response, accessToken: string, refreshToken: string
 
 export const register = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const { name, email, password } = req.body || {};
+		const { name, email, password, phone_number, language_preference } = req.body || {};
 		if (!name || !email || !password) {
 			return next({ status: 400, code: 'VALIDATION_ERROR', message: 'Name, email and password are required.' });
 		}
-		const result = await AuthService.register({ name, email, password });
+		const result = await AuthService.register({ name, email, password, phone_number, language_preference });
 		
 		// Set cookies
 		setAuthCookies(res, result.tokens.accessToken, result.tokens.refreshToken, result.tokens.accessTokenExpiresIn);
