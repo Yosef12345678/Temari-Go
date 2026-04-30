@@ -6,13 +6,17 @@ import {
 } from '../controllers/alcoholTest.controller';
 import authMiddleware from '../middlewares/auth.middleware';
 import { authorize } from '../middlewares/role.middleware';
+import deviceAuthMiddleware from '../middlewares/deviceAuth.middleware';
 
 const router = Router();
 
-// All routes require authentication
+// POST /api/alcohol-tests/device - Submit alcohol test from device (x-device-key)
+router.post('/device', deviceAuthMiddleware, submitAlcoholTest);
+
+// All other routes require user authentication
 router.use(authMiddleware);
 
-// POST /api/alcohol-tests - Submit alcohol test from microcontroller
+// POST /api/alcohol-tests - Submit alcohol test (user-auth)
 router.post('/', submitAlcoholTest);
 
 // GET /api/alcohol-tests/driver/:driverId - Get alcohol test history for a driver (Admin access only)
