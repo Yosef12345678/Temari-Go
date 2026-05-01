@@ -23,6 +23,7 @@ import rfidCardRoutes from './routes/rfidCard.routes';
 import routeRoutes from './routes/route.routes';
 import routeAssignmentRoutes from './routes/routeAssignment.routes';
 import schoolRoutes from './routes/school.routes';
+import deviceRoutes from './routes/device.routes';
 
 dotenv.config();
 
@@ -72,7 +73,7 @@ app.use(
 		},
 		credentials: true,
 		methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-		allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+		allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Device-Key', 'x-device-key'],
 		optionsSuccessStatus: 204,
 	})
 );
@@ -118,6 +119,7 @@ app.use('/api/rfid-cards', rfidCardRoutes);
 app.use('/api/routes', routeRoutes);
 app.use('/api/route-assignments', routeAssignmentRoutes);
 app.use('/api/schools', schoolRoutes);
+app.use('/api/devices', deviceRoutes);
 
 app.use(errorMiddleware);
 

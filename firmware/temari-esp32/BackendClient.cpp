@@ -2,6 +2,7 @@
 
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
+#include <WiFi.h>
 #include <WiFiClientSecure.h>
 
 namespace {
@@ -10,6 +11,50 @@ constexpr size_t kLocationDocSize = 256;
 constexpr size_t kAttendanceScanDocSize = 384;
 constexpr size_t kAttendanceSyncBaseDocSize = 256;
 constexpr size_t kAttendanceSyncPerRecordDocSize = 256;
+
+struct ParsedBaseUrl {
+  bool https = true;
+  String host;
+  uint16_t port = 443;
+  String basePath; // usually empty
+};
+
+static bool parseBaseUrl(const String& baseUrl, ParsedBaseUrl* out) {
+  if (!out) return false;
+  *out = {};
+
+  String s = baseUrl;
+  s.trim();
+  if (s.startsWith("https://")) {
+    out->https = true;
+    s.remove(0, String("https://").length());
+    out->port = 443;
+  } else if (s.startsWith("http://")) {
+    out->https = false;
+    s.remove(0, String("http://").length());
+    out->port = 80;
+  } else {
+    return false;
+  }
+
+  // Split host[:port][/basePath]
+  int slash = s.indexOf('/');
+  String hostPort = (slash >= 0) ? s.substring(0, slash) : s;
+  out->basePath = (slash >= 0) ? s.substring(slash) : "";
+
+  int colon = hostPort.indexOf(':');
+  if (colon >= 0) {
+    out->host = hostPort.substring(0, colon);
+    out->port = (uint16_t)hostPort.substring(colon + 1).toInt();
+  } else {
+    out->host = hostPort;
+  }
+
+  out->host.trim();
+  if (out->host.length() == 0) return false;
+  if (out->port == 0) return false;
+  return true;
+}
 } // namespace
 
 BackendClient::BackendClient() {}
@@ -112,7 +157,19 @@ bool BackendClient::postJson(const String& path, const String& jsonBody, String*
     return false;
   }
 
+  ParsedBaseUrl u;
+  if (!parseBaseUrl(_baseUrl, &u)) {
+    _lastError = "invalid baseUrl (expected http(s)://host[:port])";
+    return false;
+  }
+
   WiFiClientSecure client;
+  // For quick testing you can compile with:
+  //   #define TEMARI_TLS_INSECURE 1
+  // which disables server certificate verification.
+#if defined(TEMARI_TLS_INSECURE) && TEMARI_TLS_INSECURE
+  client.setInsecure();
+#else
   if (_serverRootCACertPem.length() > 0) {
     client.setCACert(_serverRootCACertPem.c_str());
   } else {
@@ -120,18 +177,36 @@ bool BackendClient::postJson(const String& path, const String& jsonBody, String*
     _lastError = "missing server root CA cert (PEM)";
     return false;
   }
+#endif
 
   HTTPClient http;
-  const String url = _baseUrl + path;
-  if (!http.begin(client, url)) {
-    _lastError = "http begin failed";
+  const String fullPath = (u.basePath.length() > 0 ? (u.basePath + path) : path);
+
+  // Debug aid: resolve host (also nudges us toward IPv4 A record).
+  IPAddress ip;
+  const bool dnsOk = WiFi.hostByName(u.host.c_str(), ip);
+  if (!dnsOk) {
+    _lastError = "dns lookup failed (WiFi.hostByName)";
+    return false;
+  }
+#if defined(TEMARI_DEBUG) && TEMARI_DEBUG
+  Serial.printf("Temari DNS %s -> %s:%u https=%d\n", u.host.c_str(), ip.toString().c_str(), u.port, (int)u.https);
+#endif
+
+  http.setReuse(false);
+  // Use supported overload on ESP32 core 3.3.8: begin(client, host, port, uri, https).
+  // We still resolve DNS above for debug visibility.
+  if (!http.begin(client, u.host, u.port, fullPath, u.https)) {
+    _lastError = "http begin failed (host/port/path)";
     return false;
   }
 
   http.addHeader("Content-Type", "application/json");
   http.addHeader("x-device-key", _deviceKey);
+  // Ensure correct virtual-host routing even when connecting by IP.
+  http.addHeader("Host", u.host);
 
-  const int status = http.POST(reinterpret_cast<const uint8_t*>(jsonBody.c_str()), jsonBody.length());
+  const int status = http.POST(reinterpret_cast<uint8_t*>(const_cast<char*>(jsonBody.c_str())), jsonBody.length());
   _lastHttpStatus = status;
 
   if (status <= 0) {

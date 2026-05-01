@@ -9,12 +9,28 @@ export const createLocation = async (req: Request, res: Response) => {
 	try {
 		const { bus_id, latitude, longitude, speed, timestamp } = req.body;
 
+		const deviceBusId = (req as any).device?.bus_id ?? null;
+		const resolvedBusId =
+			deviceBusId !== null && deviceBusId !== undefined
+				? Number(deviceBusId)
+				: bus_id
+					? Number(bus_id)
+					: null;
+
 		// Validate required fields
-		if (!bus_id) {
+		if (!resolvedBusId) {
 			return res.status(400).json({
 				success: false,
 				code: 'MISSING_BUS_ID',
 				message: 'bus_id is required.',
+			});
+		}
+
+		if (deviceBusId !== null && bus_id && Number(bus_id) !== Number(deviceBusId)) {
+			return res.status(403).json({
+				success: false,
+				code: 'DEVICE_BUS_MISMATCH',
+				message: 'Device is not authorized for this bus_id.',
 			});
 		}
 
@@ -45,7 +61,7 @@ export const createLocation = async (req: Request, res: Response) => {
 
 		// Process the location update
 		const result = await LocationService.createLocationUpdate({
-			bus_id: Number(bus_id),
+			bus_id: Number(resolvedBusId),
 			latitude: Number(latitude),
 			longitude: Number(longitude),
 			speed: speed !== undefined && speed !== null ? Number(speed) : undefined,

@@ -16,6 +16,14 @@ export const scanAttendance = async (req: Request, res: Response) => {
 			bus_id,
 		} = req.body;
 
+		const deviceBusId = (req as any).device?.bus_id ?? null;
+		const resolvedBusId =
+			deviceBusId !== null && deviceBusId !== undefined
+				? Number(deviceBusId)
+				: bus_id
+					? Number(bus_id)
+					: null;
+
 		// Validate required fields
 		if (!rfid_tag) {
 			return res.status(400).json({
@@ -33,11 +41,19 @@ export const scanAttendance = async (req: Request, res: Response) => {
 			});
 		}
 
-		if (!vehicle_id && !bus_id) {
+		if (!vehicle_id && !resolvedBusId) {
 			return res.status(400).json({
 				success: false,
 				code: 'MISSING_BUS_IDENTIFIER',
 				message: 'Either vehicle_id or bus_id is required.',
+			});
+		}
+
+		if (deviceBusId !== null && bus_id && Number(bus_id) !== Number(deviceBusId)) {
+			return res.status(403).json({
+				success: false,
+				code: 'DEVICE_BUS_MISMATCH',
+				message: 'Device is not authorized for this bus_id.',
 			});
 		}
 
@@ -65,7 +81,7 @@ export const scanAttendance = async (req: Request, res: Response) => {
 			latitude: Number(latitude),
 			longitude: Number(longitude),
 			vehicle_id,
-			bus_id: bus_id ? Number(bus_id) : undefined,
+			bus_id: resolvedBusId ? Number(resolvedBusId) : undefined,
 		};
 
 		const result = await AttendanceService.processScan(input);
@@ -101,6 +117,7 @@ export const scanAttendance = async (req: Request, res: Response) => {
 export const syncAttendance = async (req: Request, res: Response) => {
 	try {
 		const { records } = req.body;
+		const deviceBusId = (req as any).device?.bus_id ?? null;
 
 		if (!Array.isArray(records) || records.length === 0) {
 			return res.status(400).json({
@@ -122,6 +139,14 @@ export const syncAttendance = async (req: Request, res: Response) => {
 				event_id,
 			} = record;
 
+			if (deviceBusId !== null && bus_id !== undefined && bus_id !== null && Number(bus_id) !== Number(deviceBusId)) {
+				throw {
+					status: 403,
+					code: 'DEVICE_BUS_MISMATCH',
+					message: 'Device is not authorized for one or more records bus_id.',
+				};
+			}
+
 			return {
 				event_id: event_id ?? null,
 				input: {
@@ -130,7 +155,12 @@ export const syncAttendance = async (req: Request, res: Response) => {
 					latitude: latitude !== undefined ? Number(latitude) : undefined,
 					longitude: longitude !== undefined ? Number(longitude) : undefined,
 					vehicle_id,
-					bus_id: bus_id !== undefined && bus_id !== null ? Number(bus_id) : undefined,
+					bus_id:
+						deviceBusId !== null && deviceBusId !== undefined
+							? Number(deviceBusId)
+							: bus_id !== undefined && bus_id !== null
+								? Number(bus_id)
+								: undefined,
 				} as Partial<AttendanceScanInput> & { rfid_tag?: string },
 			};
 		});

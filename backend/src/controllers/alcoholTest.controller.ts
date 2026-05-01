@@ -8,6 +8,13 @@ import { AlcoholTestService, AlcoholTestInput } from '../services/alcoholTest.se
 export const submitAlcoholTest = async (req: Request, res: Response) => {
 	try {
 		const { bus_id, vehicle_id, alcohol_level, latitude, longitude, timestamp } = req.body;
+		const deviceBusId = (req as any).device?.bus_id ?? null;
+		const resolvedBusId =
+			deviceBusId !== null && deviceBusId !== undefined
+				? Number(deviceBusId)
+				: bus_id
+					? Number(bus_id)
+					: undefined;
 
 		// Validate required fields
 		if (alcohol_level === undefined || alcohol_level === null) {
@@ -18,11 +25,19 @@ export const submitAlcoholTest = async (req: Request, res: Response) => {
 			});
 		}
 
-		if (!bus_id && !vehicle_id) {
+		if (!resolvedBusId && !vehicle_id) {
 			return res.status(400).json({
 				success: false,
 				code: 'MISSING_BUS_IDENTIFIER',
 				message: 'Either bus_id or vehicle_id is required.',
+			});
+		}
+
+		if (deviceBusId !== null && bus_id && Number(bus_id) !== Number(deviceBusId)) {
+			return res.status(403).json({
+				success: false,
+				code: 'DEVICE_BUS_MISMATCH',
+				message: 'Device is not authorized for this bus_id.',
 			});
 		}
 
@@ -58,7 +73,7 @@ export const submitAlcoholTest = async (req: Request, res: Response) => {
 
 		// Prepare input
 		const input: AlcoholTestInput = {
-			bus_id: bus_id ? Number(bus_id) : undefined,
+			bus_id: resolvedBusId !== undefined ? Number(resolvedBusId) : undefined,
 			vehicle_id: vehicle_id as string | undefined,
 			alcohol_level: Number(alcohol_level),
 			latitude: latitude !== undefined ? Number(latitude) : undefined,

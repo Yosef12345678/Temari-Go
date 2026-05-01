@@ -10,7 +10,7 @@ static String two(int v) {
   return String(v);
 }
 
-static String formatIso8601Utc(const TinyGPSDate& d, const TinyGPSTime& t) {
+static String formatIso8601Utc(TinyGPSDate d, TinyGPSTime t) {
   if (!d.isValid() || !t.isValid()) return "";
   return String(d.year()) + "-" + two(d.month()) + "-" + two(d.day()) + "T" + two(t.hour()) + ":" + two(t.minute()) +
          ":" + two(t.second()) + "Z";
