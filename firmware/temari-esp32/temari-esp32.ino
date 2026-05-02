@@ -2,6 +2,7 @@
 #include <esp_system.h>
 
 #include "DeviceConfig.h"
+#include "DeviceSecrets.h"
 #include "BackendClient.h"
 #include "AttendanceQueue.h"
 #include "Buzzer.h"
@@ -11,8 +12,6 @@
 #include "RfidReader.h"
 #include "TimeSync.h"
 
-DeviceConfigStore configStore;
-SerialProvisioning provisioning;
 DeviceConfig config;
 TimeSync timeSync;
 
@@ -35,13 +34,22 @@ static constexpr int PIN_GPS_TX = 17; // TX2
 
 // Scheduling intervals
 static constexpr uint32_t WIFI_RETRY_MS = 15000;
-static constexpr uint32_t LOCATION_POST_MS = 10000;
+static constexpr uint32_t LOCATION_POST_MS = 60000; // 1 minute
 static constexpr uint32_t LCD_REFRESH_MS = 500;
 static constexpr uint32_t ATTENDANCE_SYNC_MS = 20000;
 static constexpr uint32_t MQ3_CALIBRATE_AFTER_BOOT_MS = 30000; // MQ sensors need warm-up
 static constexpr size_t ATTENDANCE_SYNC_BATCH_MAX = 20;
 static constexpr uint32_t ALCOHOL_POST_MS = 60000;
 static constexpr float MQ3_TO_MG_L_SCALE = 0.10f; // normalized 0..1 => 0..0.10 mg/L
+
+static void applySecretsToConfig(DeviceConfig* cfg) {
+  if (!cfg) return;
+  cfg->wifiSsid = kWifiSsid;
+  cfg->wifiPassword = kWifiPassword;
+  cfg->backendBaseUrl = kBackendBaseUrl;
+  cfg->deviceKey = kDeviceKey;
+  cfg->busId = kBusId;
+}
 
 static void connectWifi(const DeviceConfig& cfg) {
   WiFi.mode(WIFI_STA);
@@ -52,15 +60,21 @@ static void connectWifi(const DeviceConfig& cfg) {
     delay(250);
     if (millis() - start > 20000) break;
   }
+  // Avoid modem sleep during TLS; wakes help save power but often cause mbedTLS EOF (-29312) on tunnels.
+  if (WiFi.status() == WL_CONNECTED) {
+    WiFi.setSleep(false);
+  }
 }
 
 void setup() {
   Serial.begin(115200);
   delay(200);
 
-  configStore.begin("temari");
-  configStore.load(&config);
-  provisioning.maybeRun(configStore, &config, 12000);
+  applySecretsToConfig(&config);
+  if (!config.isValid()) {
+    Serial.println("Invalid config: edit firmware/temari-esp32/DeviceSecrets.h "
+                   "(WiFi, backend URL, device key, bus ID > 0, root CA PEM).");
+  }
 
   lcd.begin(0x27, 16, 2);
   lcd.showBoot();
@@ -73,7 +87,9 @@ void setup() {
 
   backend.setBaseUrl(config.backendBaseUrl);
   backend.setDeviceKey(config.deviceKey);
-  backend.setServerRootCACertPem(config.serverRootCaPem);
+
+  Serial.print("Backend URL ");
+  Serial.println(config.backendBaseUrl);
 
   buzzer.begin(PIN_BUZZER, 0);
   rfid.begin(PIN_RFID_SS, PIN_RFID_RST);

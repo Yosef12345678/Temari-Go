@@ -9,7 +9,6 @@ constexpr const char* kKeyWifiPass = "wifiPass";
 constexpr const char* kKeyBaseUrl = "baseUrl";
 constexpr const char* kKeyDeviceKey = "deviceKey";
 constexpr const char* kKeyBusId = "busId";
-constexpr const char* kKeyCaPem = "caPem";
 } // namespace
 
 bool DeviceConfigStore::begin(const char* nvsNamespace) {
@@ -24,7 +23,6 @@ bool DeviceConfigStore::load(DeviceConfig* out) {
   out->backendBaseUrl = g_prefs.getString(kKeyBaseUrl, "");
   out->deviceKey = g_prefs.getString(kKeyDeviceKey, "");
   out->busId = g_prefs.getInt(kKeyBusId, 0);
-  out->serverRootCaPem = g_prefs.getString(kKeyCaPem, "");
   return true;
 }
 
@@ -34,7 +32,6 @@ bool DeviceConfigStore::save(const DeviceConfig& cfg) {
   g_prefs.putString(kKeyBaseUrl, cfg.backendBaseUrl);
   g_prefs.putString(kKeyDeviceKey, cfg.deviceKey);
   g_prefs.putInt(kKeyBusId, cfg.busId);
-  g_prefs.putString(kKeyCaPem, cfg.serverRootCaPem);
   return true;
 }
 
@@ -83,16 +80,6 @@ bool SerialProvisioning::maybeRun(DeviceConfigStore& store, DeviceConfig* cfg, u
   printPrompt("Bus ID (number)", String(cfg->busId));
   v = readLine(60000);
   if (v.length() > 0) cfg->busId = v.toInt();
-
-  Serial.println("Paste server ROOT CA PEM now. End with a single line containing only: END");
-  String pem;
-  while (true) {
-    const String line = readLine(60000);
-    if (line == "END") break;
-    pem += line;
-    pem += "\n";
-  }
-  if (pem.length() > 0) cfg->serverRootCaPem = pem;
 
   store.save(*cfg);
   Serial.println("Saved.");

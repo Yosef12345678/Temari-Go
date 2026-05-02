@@ -3,11 +3,8 @@
 void Buzzer::begin(int pin, int pwmChannel) {
   _pin = pin;
   _channel = pwmChannel;
-  pinMode(_pin, OUTPUT);
-
-  // ESP32 LEDC PWM: 8-bit resolution is fine for buzzer.
-  ledcSetup(_channel, 2000, 8);
-  ledcAttachPin(_pin, _channel);
+  // ESP32 Arduino 3.x: LEDC uses pin-based API (channel auto-selected or explicit).
+  ledcAttachChannel(static_cast<uint8_t>(_pin), 2000, 8, static_cast<uint8_t>(_channel));
   stop();
 }
 
@@ -40,15 +37,15 @@ void Buzzer::playPattern(const Step* steps, size_t count) {
 
 void Buzzer::applyStep(const Step& s) {
   if (s.freq == 0) {
-    ledcWrite(_channel, 0);
+    ledcWrite(static_cast<uint8_t>(_pin), 0);
     return;
   }
-  ledcWriteTone(_channel, s.freq);
-  ledcWrite(_channel, 128);
+  ledcWriteTone(static_cast<uint8_t>(_pin), s.freq);
+  ledcWrite(static_cast<uint8_t>(_pin), 128);
 }
 
 void Buzzer::stop() {
-  ledcWrite(_channel, 0);
+  ledcWrite(static_cast<uint8_t>(_pin), 0);
   _active = false;
   _stepCount = 0;
   _stepIdx = 0;

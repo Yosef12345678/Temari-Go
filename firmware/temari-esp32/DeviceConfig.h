@@ -6,13 +6,12 @@ struct DeviceConfig {
   String wifiSsid;
   String wifiPassword;
   String backendBaseUrl; // ex: https://api.example.com
-  String deviceKey;      // x-device-key raw value
+  String deviceKey; // x-device-key raw value
   int busId = 0;
-  String serverRootCaPem;
 
   bool isValid() const {
     return wifiSsid.length() > 0 && wifiPassword.length() > 0 && backendBaseUrl.length() > 0 && deviceKey.length() > 0 &&
-           busId > 0 && serverRootCaPem.length() > 0;
+           busId > 0;
   }
 };
 
