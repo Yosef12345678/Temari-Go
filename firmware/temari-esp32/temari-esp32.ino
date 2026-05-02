@@ -53,7 +53,7 @@ static void applySecretsToConfig(DeviceConfig* cfg) {
 
 static void connectWifi(const DeviceConfig& cfg) {
   WiFi.mode(WIFI_STA);
-  WiFi.begin(cfg.wifiSsid.c_str(), cfg.wifiPassword.c_str());
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   const uint32_t start = millis();
   while (WiFi.status() != WL_CONNECTED) {
@@ -79,7 +79,7 @@ void setup() {
   lcd.begin(0x27, 16, 2);
   lcd.showBoot();
 
-  connectWifi(config);
+  connectWifi();
 
   if (WiFi.status() == WL_CONNECTED) {
     timeSync.syncNtp(15000);
@@ -126,7 +126,7 @@ void loop() {
   // WiFi keepalive (simple retry loop)
   if (WiFi.status() != WL_CONNECTED && (now - lastWifiAttemptMs) >= WIFI_RETRY_MS) {
     lastWifiAttemptMs = now;
-    connectWifi(config);
+    connectWifi();
     if (WiFi.status() == WL_CONNECTED && !timeSync.isSane()) {
       timeSync.syncNtp(15000);
     }
@@ -162,7 +162,7 @@ void loop() {
       scan.latitude = fix.lat;
       scan.longitude = fix.lon;
       scan.has_bus_id = true;
-      scan.bus_id = config.busId;
+      scan.bus_id = BUS_ID;
       scan.has_vehicle_id = false;
       scan.has_timestamp = fix.has_timestamp;
       scan.timestamp_iso8601 = fix.timestamp_iso8601;
@@ -184,7 +184,7 @@ void loop() {
         rec.latitude = fix.lat;
         rec.longitude = fix.lon;
         rec.has_bus_id = true;
-        rec.bus_id = config.busId;
+        rec.bus_id = BUS_ID;
         rec.has_vehicle_id = false;
         rec.has_timestamp = fix.has_timestamp;
         rec.timestamp_iso8601 = fix.timestamp_iso8601;
@@ -201,7 +201,7 @@ void loop() {
       rec.latitude = fix.valid ? fix.lat : 0.0;
       rec.longitude = fix.valid ? fix.lon : 0.0;
       rec.has_bus_id = true;
-      rec.bus_id = config.busId;
+      rec.bus_id = BUS_ID;
       rec.has_vehicle_id = false;
       rec.has_timestamp = fix.has_timestamp;
       rec.timestamp_iso8601 = fix.timestamp_iso8601;
@@ -217,7 +217,7 @@ void loop() {
     const GpsFix& fix = gps.lastFix();
     if (fix.valid) {
       LocationPayload loc{};
-      loc.bus_id = config.busId;
+      loc.bus_id = BUS_ID;
       loc.latitude = fix.lat;
       loc.longitude = fix.lon;
       loc.has_speed = fix.has_speed;
@@ -247,7 +247,7 @@ void loop() {
       AlcoholTestPayload p{};
       p.alcohol_level = static_cast<double>(r.normalized * MQ3_TO_MG_L_SCALE);
       p.has_bus_id = true;
-      p.bus_id = config.busId;
+      p.bus_id = BUS_ID;
       p.has_vehicle_id = false;
       p.has_latitude = fix.valid;
       p.latitude = fix.lat;

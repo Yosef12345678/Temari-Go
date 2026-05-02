@@ -33,6 +33,7 @@ import {
   MapPin,
   CreditCard,
   BadgeCheck,
+  Cpu,
   Bell,
   Plug,
   Puzzle,
@@ -71,6 +72,7 @@ const mapItems = [
 // Hardware: RFID lives here; assign/manage cards (distinct from Students)
 const hardwareItems = [
   { title: "RFID Cards", url: "/rfid-cards", icon: BadgeCheck },
+  { title: "Devices", url: "/devices", icon: Cpu },
 ];
 
 const paymentsItems = [
