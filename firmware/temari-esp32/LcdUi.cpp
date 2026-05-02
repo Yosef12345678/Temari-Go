@@ -43,7 +43,7 @@ void LcdUi::showGpsStatus(bool fix, uint32_t sats) {
   if (fix) {
     showMsg("GPS FIX", "Sats " + String(sats));
   } else {
-    showMsg("GPS...", "No fix");
+    showMsg("GPS no fix", "sats:" + String(sats));
   }
 }
 

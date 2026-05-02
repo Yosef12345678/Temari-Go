@@ -63,8 +63,6 @@ void BackendClient::setBaseUrl(const String& baseUrl) { _baseUrl = baseUrl; }
 
 void BackendClient::setDeviceKey(const String& deviceKey) { _deviceKey = deviceKey; }
 
-void BackendClient::setServerRootCACertPem(const String& pem) { _serverRootCACertPem = pem; }
-
 void BackendClient::clearLastError() {
   _lastError = "";
   _lastHttpStatus = 0;
@@ -164,20 +162,8 @@ bool BackendClient::postJson(const String& path, const String& jsonBody, String*
   }
 
   WiFiClientSecure client;
-  // For quick testing you can compile with:
-  //   #define TEMARI_TLS_INSECURE 1
-  // which disables server certificate verification.
-#if defined(TEMARI_TLS_INSECURE) && TEMARI_TLS_INSECURE
+  client.setHandshakeTimeout(45000);
   client.setInsecure();
-#else
-  if (_serverRootCACertPem.length() > 0) {
-    client.setCACert(_serverRootCACertPem.c_str());
-  } else {
-    // Fail closed by default: no CA cert means TLS can't be validated.
-    _lastError = "missing server root CA cert (PEM)";
-    return false;
-  }
-#endif
 
   HTTPClient http;
   const String fullPath = (u.basePath.length() > 0 ? (u.basePath + path) : path);
@@ -201,16 +187,29 @@ bool BackendClient::postJson(const String& path, const String& jsonBody, String*
     return false;
   }
 
+  http.setReuse(false);
+  http.setConnectTimeout(20000);
+  http.setTimeout(45000);
+  http.setUserAgent("TemariESP32/1.0");
+
   http.addHeader("Content-Type", "application/json");
   http.addHeader("x-device-key", _deviceKey);
-  // Ensure correct virtual-host routing even when connecting by IP.
-  http.addHeader("Host", u.host);
+  // Ngrok free: forward real traffic instead of HTML interstitial pages.
+  http.addHeader("ngrok-skip-browser-warning", "true");
 
-  const int status = http.POST(reinterpret_cast<uint8_t*>(const_cast<char*>(jsonBody.c_str())), jsonBody.length());
+  // HTTPClient declares non-const payload; POST does not modify the buffer.
+  uint8_t* const payload =
+      reinterpret_cast<uint8_t*>(const_cast<char*>(jsonBody.c_str()));
+  const int status = http.POST(payload, jsonBody.length());
   _lastHttpStatus = status;
 
   if (status <= 0) {
+    char sslDetail[144];
+    const int mbedCode = client.lastError(sslDetail, sizeof(sslDetail));
     _lastError = http.errorToString(status);
+    if (mbedCode != 0) {
+      _lastError += String(" mbedTLS ") + String(mbedCode) + String(": ") + String(sslDetail);
+    }
     http.end();
     return false;
   }

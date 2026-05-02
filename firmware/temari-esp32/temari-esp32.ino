@@ -1,13 +1,8 @@
 #include <WiFi.h>
 #include <esp_system.h>
 
-// Temporary dev switch: disables TLS certificate verification.
-// Set to 0 when you have a proper Root CA PEM configured.
-#define TEMARI_TLS_INSECURE 1
-
-// Enable Serial debug prints from BackendClient.
-#define TEMARI_DEBUG 1
-
+#include "DeviceConfig.h"
+#include "DeviceSecrets.h"
 #include "BackendClient.h"
 #include "AttendanceQueue.h"
 #include "Buzzer.h"
@@ -17,6 +12,7 @@
 #include "RfidReader.h"
 #include "TimeSync.h"
 
+DeviceConfig config;
 TimeSync timeSync;
 
 BackendClient backend;
@@ -38,7 +34,7 @@ static constexpr int PIN_GPS_TX = 17; // TX2
 
 // Scheduling intervals
 static constexpr uint32_t WIFI_RETRY_MS = 15000;
-static constexpr uint32_t LOCATION_POST_MS = 10000;
+static constexpr uint32_t LOCATION_POST_MS = 60000; // 1 minute
 static constexpr uint32_t LCD_REFRESH_MS = 500;
 static constexpr uint32_t ATTENDANCE_SYNC_MS = 20000;
 static constexpr uint32_t MQ3_CALIBRATE_AFTER_BOOT_MS = 30000; // MQ sensors need warm-up
@@ -46,40 +42,16 @@ static constexpr size_t ATTENDANCE_SYNC_BATCH_MAX = 20;
 static constexpr uint32_t ALCOHOL_POST_MS = 60000;
 static constexpr float MQ3_TO_MG_L_SCALE = 0.10f; // normalized 0..1 => 0..0.10 mg/L
 
-// ---- Hardcoded configuration  ----
-static const char* WIFI_SSID = "TianYi-22kR";
-static const char* WIFI_PASSWORD = "62235400";
-static const char* BACKEND_BASE_URL = "https://up-painfully-crayfish.ngrok-free.app"; // ex: https://api.example.com (no trailing slash recommended)
-static const char* DEVICE_KEY = "a69efea19d6e77f617bafc9de08739a26293718cd4f1a5ca1cc8b77f5ab7793d";               // sent as x-device-key
-static const int BUS_ID = 1;
+static void applySecretsToConfig(DeviceConfig* cfg) {
+  if (!cfg) return;
+  cfg->wifiSsid = kWifiSsid;
+  cfg->wifiPassword = kWifiPassword;
+  cfg->backendBaseUrl = kBackendBaseUrl;
+  cfg->deviceKey = kDeviceKey;
+  cfg->busId = kBusId;
+}
 
-// Root CA PEM for your backend server certificate chain.
-static const char* SERVER_ROOT_CA_PEM = R"PEM(
------BEGIN CERTIFICATE-----
-MIIDmjCCAyGgAwIBAgISBmosJeAviIu7WMsxLiEoQrWoMAoGCCqGSM49BAMDMDIx
-CzAJBgNVBAYTAlVTMRYwFAYDVQQKEw1MZXQncyBFbmNyeXB0MQswCQYDVQQDEwJF
-NzAeFw0yNjAzMjkxNjAzMzJaFw0yNjA2MjcxNjAzMzFaMBsxGTAXBgNVBAMMECou
-bmdyb2stZnJlZS5hcHAwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAATmt8dreaEj
-jY1q/7Jt4J4E+tmu/KosbyaTy7vnkcb82piE7O+MtbhqjJx/maTmw1cpZkasdZhT
-LXVMKDgEBak8o4ICLDCCAigwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsG
-AQUFBwMBMAwGA1UdEwEB/wQCMAAwHQYDVR0OBBYEFPV153WpUSTzYvRhhkCK2mQ2
-1ZjQMB8GA1UdIwQYMBaAFK5IntyHHUSgb9qi5WB0BHjCnACAMDIGCCsGAQUFBwEB
-BCYwJDAiBggrBgEFBQcwAoYWaHR0cDovL2U3LmkubGVuY3Iub3JnLzArBgNVHREE
-JDAighAqLm5ncm9rLWZyZWUuYXBwgg5uZ3Jvay1mcmVlLmFwcDATBgNVHSAEDDAK
-MAgGBmeBDAECATAtBgNVHR8EJjAkMCKgIKAehhxodHRwOi8vZTcuYy5sZW5jci5v
-cmcvNDEuY3JsMIIBDAYKKwYBBAHWeQIEAgSB/QSB+gD4AH8AqCbL4wrGNRJGUz/g
-ZfFPGdluGQgTxB3ZbXkAsxI8VScAAAGdOouk6QAIAAAFAASwYoEEAwBIMEYCIQCE
-2GZ5MxUctUk8nnS2Hi4WiVNOqh7MYjixqRWqjPpm7AIhAIQUYj7mGGxPhdV9BFOD
-6ep1w64KKeIcNL/Lmo2Xl4VvAHUAZBHEbKQS7KeJHKICLgC8q08oB9QeNSer6v7V
-A8l9zfAAAAGdOoupqwAABAMARjBEAiBgJVGKoQYm1NU9U/RvnA+8IOwwTTwAFDn7
-87naFlcycQIgGGckC3J5k75E8VOPVS0mxTFk+MObn3hb3w0XKG1RGh8wCgYIKoZI
-zj0EAwMDZwAwZAIwJP2O6yR4MtCbLrCHnurnzAo6B/bLVs01p9lDsHh7FwbSLFAY
-yoGIidLO0WgdRyASAjBwV+1vnMu7FvcONxawonrOj300pwU3rQL5yDXW+lK7G2NY
-kpbR6BxLRiVV4ten/uI=
------END CERTIFICATE-----
-)PEM";
-
-static void connectWifi() {
+static void connectWifi(const DeviceConfig& cfg) {
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
@@ -88,11 +60,21 @@ static void connectWifi() {
     delay(250);
     if (millis() - start > 20000) break;
   }
+  // Avoid modem sleep during TLS; wakes help save power but often cause mbedTLS EOF (-29312) on tunnels.
+  if (WiFi.status() == WL_CONNECTED) {
+    WiFi.setSleep(false);
+  }
 }
 
 void setup() {
   Serial.begin(115200);
   delay(200);
+
+  applySecretsToConfig(&config);
+  if (!config.isValid()) {
+    Serial.println("Invalid config: edit firmware/temari-esp32/DeviceSecrets.h "
+                   "(WiFi, backend URL, device key, bus ID > 0, root CA PEM).");
+  }
 
   lcd.begin(0x27, 16, 2);
   lcd.showBoot();
@@ -103,9 +85,11 @@ void setup() {
     timeSync.syncNtp(15000);
   }
 
-  backend.setBaseUrl(String(BACKEND_BASE_URL));
-  backend.setDeviceKey(String(DEVICE_KEY));
-  backend.setServerRootCACertPem(String(SERVER_ROOT_CA_PEM));
+  backend.setBaseUrl(config.backendBaseUrl);
+  backend.setDeviceKey(config.deviceKey);
+
+  Serial.print("Backend URL ");
+  Serial.println(config.backendBaseUrl);
 
   buzzer.begin(PIN_BUZZER, 0);
   rfid.begin(PIN_RFID_SS, PIN_RFID_RST);

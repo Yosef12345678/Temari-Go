@@ -60,7 +60,6 @@ class BackendClient {
 
   void setBaseUrl(const String& baseUrl);     // ex: https://api.example.com
   void setDeviceKey(const String& deviceKey); // raw key; sent as x-device-key
-  void setServerRootCACertPem(const String& pem);
 
   bool postLocation(const LocationPayload& payload, String* responseOut);
   bool postAttendanceScan(const AttendanceScanPayload& payload, String* responseOut);
@@ -73,7 +72,6 @@ class BackendClient {
  private:
   String _baseUrl;
   String _deviceKey;
-  String _serverRootCACertPem;
 
   int _lastHttpStatus = 0;
   String _lastError;
