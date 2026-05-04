@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -9,6 +9,7 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 
 export default function ChildDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const q = useStudentDetail(String(id ?? ''));
   const borderColor = useThemeColor({}, 'border');
   const cardBackground = useThemeColor({}, 'background');
@@ -34,16 +35,16 @@ export default function ChildDetailScreen() {
         </View>
       ) : null}
 
-      <Link href={`/children/${id}/attendance`} asChild>
-        <Pressable style={[styles.button, { backgroundColor: tint }]}>
-          <ThemedText type="defaultSemiBold">Attendance</ThemedText>
-        </Pressable>
-      </Link>
-      <Link href={`/children/${id}/tracking`} asChild>
-        <Pressable style={[styles.button, { backgroundColor: tint }]}>
-          <ThemedText type="defaultSemiBold">Bus tracking</ThemedText>
-        </Pressable>
-      </Link>
+      <Pressable
+        style={[styles.button, { backgroundColor: tint }]}
+        onPress={() => router.push(`/children/${id}/attendance` as any)}>
+        <ThemedText type="defaultSemiBold">Attendance</ThemedText>
+      </Pressable>
+      <Pressable
+        style={[styles.button, { backgroundColor: tint }]}
+        onPress={() => router.push(`/children/${id}/tracking` as any)}>
+        <ThemedText type="defaultSemiBold">Bus tracking</ThemedText>
+      </Pressable>
     </ThemedView>
   );
 }

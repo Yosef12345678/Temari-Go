@@ -19,3 +19,8 @@ export function useColorScheme() {
 
   return 'light';
 }
+
+export function useResolvedColorScheme(): 'light' | 'dark' {
+  const scheme = useColorScheme();
+  return scheme === 'dark' ? 'dark' : 'light';
+}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
-import { Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -9,6 +9,7 @@ import { useStudentsList } from '@/src/hooks/useStudents';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 export default function ChildrenTab() {
+  const router = useRouter();
   const students = useStudentsList();
   const borderColor = useThemeColor({}, 'border');
   const cardBackground = useThemeColor({}, 'background');
@@ -30,15 +31,15 @@ export default function ChildrenTab() {
         keyExtractor={(item: any) => String(item.id)}
         contentContainerStyle={{ paddingVertical: 8 }}
         renderItem={({ item }: any) => (
-          <Link href={`/children/${item.id}`} asChild>
-            <Pressable style={[styles.card, { borderColor, backgroundColor: cardBackground }]}>
-              <ThemedText type="defaultSemiBold">{item.full_name ?? 'Student'}</ThemedText>
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <ThemedText>Grade: {String(item.grade ?? '-')}</ThemedText>
-                <ThemedText>Id: {String(item.id)}</ThemedText>
-              </View>
-            </Pressable>
-          </Link>
+          <Pressable
+            style={[styles.card, { borderColor, backgroundColor: cardBackground }]}
+            onPress={() => router.push(`/children/${item.id}` as any)}>
+            <ThemedText type="defaultSemiBold">{item.full_name ?? 'Student'}</ThemedText>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <ThemedText>Grade: {String(item.grade ?? '-')}</ThemedText>
+              <ThemedText>Id: {String(item.id)}</ThemedText>
+            </View>
+          </Pressable>
         )}
         ListEmptyComponent={
           students.isLoading ? null : <ThemedText>No students found for this parent.</ThemedText>

@@ -4,8 +4,8 @@ import { Platform } from 'react-native';
 
 import type { AuthTokens } from '@/src/api/tokenStore';
 
-const ACCESS_KEY = 'guardian:accessToken';
-const REFRESH_KEY = 'guardian:refreshToken';
+const ACCESS_KEY = 'guardian.accessToken';
+const REFRESH_KEY = 'guardian.refreshToken';
 
 async function canUseSecureStore(): Promise<boolean> {
   if (Platform.OS === 'web') return false;

@@ -1,19 +1,26 @@
-import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 import * as usersApi from '@/src/api/users';
 
 let hasAttemptedThisBoot = false;
 
+function notificationsAccessAllowed(perms: unknown): boolean {
+  const p = perms as { status?: string; granted?: boolean };
+  if (typeof p.status === 'string') return p.status === 'granted';
+  return p.granted === true;
+}
+
 async function getBestEffortPushToken(): Promise<string | null> {
-  // Request permissions (iOS + Android 13+)
+  // Dynamic import: loading `expo-notifications` in Expo Go throws at module eval time.
+  const Notifications = await import('expo-notifications');
+
   const perms = await Notifications.getPermissionsAsync();
-  if (!perms.granted) {
+  if (!notificationsAccessAllowed(perms)) {
     const req = await Notifications.requestPermissionsAsync();
-    if (!req.granted) return null;
+    if (!notificationsAccessAllowed(req)) return null;
   }
 
-  // On Android, prefer the device push token (FCM). In managed Expo, this may require extra setup.
   try {
     if (Platform.OS === 'android') {
       const device = await Notifications.getDevicePushTokenAsync();
@@ -23,7 +30,6 @@ async function getBestEffortPushToken(): Promise<string | null> {
     // ignore; fall back
   }
 
-  // Fallback: Expo push token (still useful during dev)
   try {
     const expoToken = await Notifications.getExpoPushTokenAsync();
     return expoToken.data;
@@ -34,10 +40,15 @@ async function getBestEffortPushToken(): Promise<string | null> {
 
 /**
  * Best-effort push token registration. Safe to call multiple times; only runs once per app boot.
+ * Skips entirely in Expo Go (remote push is not supported there).
  */
 export async function registerPushTokenOncePerBoot(): Promise<void> {
   if (hasAttemptedThisBoot) return;
   hasAttemptedThisBoot = true;
+
+  if (Constants.appOwnership === 'expo') {
+    return;
+  }
 
   const token = await getBestEffortPushToken();
   if (!token) return;
@@ -48,4 +59,3 @@ export async function registerPushTokenOncePerBoot(): Promise<void> {
     // ignore; do not break app startup
   }
 }
-

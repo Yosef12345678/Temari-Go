@@ -1,6 +1,6 @@
 import React from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
-import { Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -9,6 +9,7 @@ import { useMe } from '@/src/hooks/useMe';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 export default function BillingTab() {
+  const router = useRouter();
   const me = useMe();
   const invoices = useInvoices({ limit: 50, offset: 0 });
   const payments = usePaymentsByParent(me.data?.id ?? '', { limit: 20, offset: 0 });
@@ -21,11 +22,11 @@ export default function BillingTab() {
     <ThemedView style={styles.container}>
       <View style={styles.headerRow}>
         <ThemedText type="title">Billing</ThemedText>
-        <Link href="/billing/pay" asChild>
-          <Pressable style={[styles.button, { backgroundColor: tint }]}>
-            <ThemedText type="defaultSemiBold">Pay</ThemedText>
-          </Pressable>
-        </Link>
+        <Pressable
+          style={[styles.button, { backgroundColor: tint }]}
+          onPress={() => router.push('/billing/pay' as any)}>
+          <ThemedText type="defaultSemiBold">Pay</ThemedText>
+        </Pressable>
       </View>
 
       <ThemedText type="subtitle">Invoices</ThemedText>
