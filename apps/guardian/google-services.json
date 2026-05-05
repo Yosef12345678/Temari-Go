@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "220653153267",
+    "project_id": "temari-go",
+    "storage_bucket": "temari-go.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:220653153267:android:e80a707d7e8b39361cc086",
+        "android_client_info": {
+          "package_name": "Temari.Go.Parent"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBXg8AXOzsAqkEYVt0YtLpmxXwIbBPhHRY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:220653153267:android:cf2cd77b713ee5471cc086",
+        "android_client_info": {
+          "package_name": "com.davie10.guardian"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBXg8AXOzsAqkEYVt0YtLpmxXwIbBPhHRY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
