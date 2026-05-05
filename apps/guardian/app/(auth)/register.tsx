@@ -1,12 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { AppBrand } from '@/components/app-brand';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Text } from '@/components/ui/text';
 import { useAuth } from '@/src/hooks/useAuth';
-import { useThemeColor } from '@/hooks/use-theme-color';
 import { validateLanguagePreference, validatePhone } from '@/src/utils/validators';
 
 function validateEmail(email: string): string | null {
@@ -20,10 +22,6 @@ function validateEmail(email: string): string | null {
 export default function ParentRegistrationScreen() {
   const router = useRouter();
   const { register } = useAuth();
-  const tint = useThemeColor({}, 'tint');
-  const borderColor = useThemeColor({}, 'border');
-  const inputBackground = useThemeColor({}, 'background');
-  const errorColor = useThemeColor({}, 'destructive');
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -50,138 +48,98 @@ export default function ParentRegistrationScreen() {
   );
 
   return (
-    <ThemedView style={styles.container}>
+    <View className="bg-background flex-1 justify-center px-4">
       <AppBrand subtitle="Parent Registration" />
-      <ThemedText>Sign up and set the details required to continue.</ThemedText>
+      <Card className="mt-4">
+        <CardHeader>
+          <CardTitle>Create account</CardTitle>
+          <CardDescription>Sign up and set the details required to continue.</CardDescription>
+        </CardHeader>
+        <CardContent className="gap-4">
+          <View className="gap-2">
+            <Label>Name *</Label>
+            <Input value={name} onChangeText={setName} placeholder="Full name" autoCapitalize="words" />
+            {nameError ? <Text className="text-destructive text-sm">{nameError}</Text> : null}
+          </View>
 
-      <View style={styles.field}>
-        <ThemedText type="defaultSemiBold">Name *</ThemedText>
-        <TextInput
-          value={name}
-          onChangeText={setName}
-          placeholder="Full name"
-          style={[styles.input, { borderColor, backgroundColor: inputBackground }]}
-          autoCapitalize="words"
-        />
-        {nameError ? <ThemedText style={[styles.errorText, { color: errorColor }]}>{nameError}</ThemedText> : null}
-      </View>
+          <View className="gap-2">
+            <Label>Email *</Label>
+            <Input
+              value={email}
+              onChangeText={setEmail}
+              placeholder="email@example.com"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+            />
+            {emailError ? <Text className="text-destructive text-sm">{emailError}</Text> : null}
+          </View>
 
-      <View style={styles.field}>
-        <ThemedText type="defaultSemiBold">Email *</ThemedText>
-        <TextInput
-          value={email}
-          onChangeText={setEmail}
-          placeholder="email@example.com"
-          style={[styles.input, { borderColor, backgroundColor: inputBackground }]}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="email-address"
-        />
-        {emailError ? <ThemedText style={[styles.errorText, { color: errorColor }]}>{emailError}</ThemedText> : null}
-      </View>
+          <View className="gap-2">
+            <Label>Password *</Label>
+            <Input
+              value={password}
+              onChangeText={setPassword}
+              placeholder="••••••••"
+              secureTextEntry
+              autoCapitalize="none"
+            />
+            {passwordError ? <Text className="text-destructive text-sm">{passwordError}</Text> : null}
+          </View>
 
-      <View style={styles.field}>
-        <ThemedText type="defaultSemiBold">Password *</ThemedText>
-        <TextInput
-          value={password}
-          onChangeText={setPassword}
-          placeholder="••••••••"
-          secureTextEntry
-          style={[styles.input, { borderColor, backgroundColor: inputBackground }]}
-          autoCapitalize="none"
-        />
-        {passwordError ? <ThemedText style={[styles.errorText, { color: errorColor }]}>{passwordError}</ThemedText> : null}
-      </View>
+          <View className="gap-2">
+            <Label>Phone number *</Label>
+            <Input
+              value={phone_number}
+              onChangeText={setPhoneNumber}
+              placeholder="+2519..."
+              keyboardType="phone-pad"
+            />
+            {phoneError ? <Text className="text-destructive text-sm">{phoneError}</Text> : null}
+          </View>
 
-      <View style={styles.field}>
-        <ThemedText type="defaultSemiBold">Phone number *</ThemedText>
-        <TextInput
-          value={phone_number}
-          onChangeText={setPhoneNumber}
-          placeholder="+2519..."
-          keyboardType="phone-pad"
-          style={[styles.input, { borderColor, backgroundColor: inputBackground }]}
-        />
-        {phoneError ? <ThemedText style={[styles.errorText, { color: errorColor }]}>{phoneError}</ThemedText> : null}
-      </View>
+          <View className="gap-2">
+            <Label>Language preference *</Label>
+            <Input
+              value={language_preference}
+              onChangeText={setLanguagePreference}
+              placeholder="e.g. en"
+              autoCapitalize="none"
+            />
+            {langError ? <Text className="text-destructive text-sm">{langError}</Text> : null}
+          </View>
 
-      <View style={styles.field}>
-        <ThemedText type="defaultSemiBold">Language preference *</ThemedText>
-        <TextInput
-          value={language_preference}
-          onChangeText={setLanguagePreference}
-          placeholder="e.g. en"
-          autoCapitalize="none"
-          style={[styles.input, { borderColor, backgroundColor: inputBackground }]}
-        />
-        {langError ? <ThemedText style={[styles.errorText, { color: errorColor }]}>{langError}</ThemedText> : null}
-      </View>
+          {error ? <Text className="text-destructive text-sm">{error}</Text> : null}
 
-      {error ? <ThemedText style={[styles.errorText, { color: errorColor }]}>{error}</ThemedText> : null}
+          <Button
+            disabled={!canSubmit}
+            onPress={async () => {
+              setSubmitting(true);
+              setError(null);
+              try {
+                await register({
+                  name: name.trim(),
+                  email: email.trim(),
+                  password,
+                  phone_number: phone_number.trim(),
+                  language_preference: language_preference.trim(),
+                });
+                // Auth gate will redirect to home on successful login.
+              } catch (e: any) {
+                setError(e?.message ?? 'Registration failed');
+              } finally {
+                setSubmitting(false);
+              }
+            }}>
+            <Text>{submitting ? 'Creating account...' : 'Create account'}</Text>
+          </Button>
 
-      <Pressable
-        disabled={!canSubmit}
-        onPress={async () => {
-          setSubmitting(true);
-          setError(null);
-          try {
-            await register({
-              name: name.trim(),
-              email: email.trim(),
-              password,
-              phone_number: phone_number.trim(),
-              language_preference: language_preference.trim(),
-            });
-            // Auth gate will redirect to home on successful login.
-          } catch (e: any) {
-            setError(e?.message ?? 'Registration failed');
-          } finally {
-            setSubmitting(false);
-          }
-        }}
-        style={[styles.button, { backgroundColor: tint }, !canSubmit && styles.buttonDisabled]}
-      >
-        <ThemedText type="defaultSemiBold">{submitting ? 'Creating account…' : 'Create account'}</ThemedText>
-      </Pressable>
-
-      <Pressable onPress={() => router.push('/(auth)/login' as any)} style={styles.linkButton}>
-        <ThemedText type="link">Already have an account? Sign in</ThemedText>
-      </Pressable>
-    </ThemedView>
+          <Button variant="link" onPress={() => router.push('/(auth)/login' as any)}>
+            <Text>Already have an account? Sign in</Text>
+          </Button>
+        </CardContent>
+      </Card>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    gap: 14,
-    justifyContent: 'center',
-  },
-  field: {
-    gap: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  button: {
-    marginTop: 8,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  linkButton: {
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  errorText: {
-    fontSize: 14,
-  },
-});
 

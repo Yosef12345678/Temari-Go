@@ -5,6 +5,10 @@ import * as usersApi from '@/src/api/users';
 
 let hasAttemptedThisBoot = false;
 
+export type PushRegistrationResult =
+  | { ok: true; token: string }
+  | { ok: false; reason: 'already_attempted' | 'expo_go' | 'permission_denied' | 'token_unavailable' | 'register_failed'; error?: unknown };
+
 function notificationsAccessAllowed(perms: unknown): boolean {
   const p = perms as { status?: string; granted?: boolean };
   if (typeof p.status === 'string') return p.status === 'granted';
@@ -43,19 +47,32 @@ async function getBestEffortPushToken(): Promise<string | null> {
  * Skips entirely in Expo Go (remote push is not supported there).
  */
 export async function registerPushTokenOncePerBoot(): Promise<void> {
-  if (hasAttemptedThisBoot) return;
+  if (hasAttemptedThisBoot) {
+    if (__DEV__) console.log('[push] skipped: already attempted this boot');
+    return;
+  }
   hasAttemptedThisBoot = true;
 
   if (Constants.appOwnership === 'expo') {
+    if (__DEV__) console.log('[push] skipped: Expo Go does not support remote push registration');
     return;
   }
 
-  const token = await getBestEffortPushToken();
-  if (!token) return;
+  let token: string | null = null;
+  try {
+    token = await getBestEffortPushToken();
+  } catch (error) {
+    if (__DEV__) console.warn('[push] token fetch failed', error);
+  }
+  if (!token) {
+    if (__DEV__) console.warn('[push] no token returned (permission denied or token unavailable)');
+    return;
+  }
 
   try {
     await usersApi.registerFcmToken({ fcmToken: token });
+    if (__DEV__) console.log('[push] token registered on backend');
   } catch {
-    // ignore; do not break app startup
+    if (__DEV__) console.warn('[push] backend /user/fcm-token registration failed');
   }
 }

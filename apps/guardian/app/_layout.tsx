@@ -1,15 +1,18 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
+import '../global.css';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { NAV_THEME } from '@/lib/theme';
 import { AppProviders } from '@/src/hooks/AppProviders';
 import { useAuth } from '@/src/hooks/useAuth';
 import { useMe } from '@/src/hooks/useMe';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { registerPushTokenOncePerBoot } from '@/src/utils/push/registerPushToken';
+import { PortalHost } from '@rn-primitives/portal';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -56,10 +59,11 @@ function AuthGate() {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const activeTheme = colorScheme === 'dark' ? 'dark' : 'light';
 
   return (
     <AppProviders>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <ThemeProvider value={NAV_THEME[activeTheme]}>
         <AuthGate />
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -68,7 +72,8 @@ export default function RootLayout() {
           <Stack.Screen name="modals/payment-webview" options={{ presentation: 'modal', title: 'Payment' }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>
-        <StatusBar style="auto" />
+        <StatusBar style={activeTheme === 'dark' ? 'light' : 'dark'} />
+        <PortalHost />
       </ThemeProvider>
     </AppProviders>
   );

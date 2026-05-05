@@ -1,20 +1,18 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { AppBrand } from '@/components/app-brand';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Text } from '@/components/ui/text';
 import { useAuth } from '@/src/hooks/useAuth';
-import { useThemeColor } from '@/hooks/use-theme-color';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { login } = useAuth();
-  const tint = useThemeColor({}, 'tint');
-  const borderColor = useThemeColor({}, 'border');
-  const inputBackground = useThemeColor({}, 'background');
-  const errorColor = useThemeColor({}, 'destructive');
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -26,89 +24,60 @@ export default function LoginScreen() {
   );
 
   return (
-    <ThemedView style={styles.container}>
+    <View className="bg-background flex-1 justify-center px-4">
       <AppBrand subtitle="Parent Login" />
 
-      <View style={styles.field}>
-        <ThemedText type="defaultSemiBold">Email or Username</ThemedText>
-        <TextInput
-          value={emailOrUsername}
-          onChangeText={setEmailOrUsername}
-          autoCapitalize="none"
-          autoCorrect={false}
-          placeholder="email@example.com"
-          style={[styles.input, { borderColor, backgroundColor: inputBackground }]}
-        />
-      </View>
+      <Card className="mt-4">
+        <CardHeader>
+          <CardTitle>Sign in</CardTitle>
+          <CardDescription>Use your email or username to continue.</CardDescription>
+        </CardHeader>
+        <CardContent className="gap-4">
+          <View className="gap-2">
+            <Label>Email or Username</Label>
+            <Input
+              value={emailOrUsername}
+              onChangeText={setEmailOrUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholder="email@example.com"
+            />
+          </View>
 
-      <View style={styles.field}>
-        <ThemedText type="defaultSemiBold">Password</ThemedText>
-        <TextInput
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          placeholder="••••••••"
-          style={[styles.input, { borderColor, backgroundColor: inputBackground }]}
-        />
-      </View>
+          <View className="gap-2">
+            <Label>Password</Label>
+            <Input
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              placeholder="••••••••"
+            />
+          </View>
 
-      {error ? <ThemedText style={[styles.errorText, { color: errorColor }]}>{error}</ThemedText> : null}
+          {error ? <Text className="text-destructive text-sm">{error}</Text> : null}
 
-      <Pressable
-        disabled={!canSubmit}
-        onPress={async () => {
-          setSubmitting(true);
-          setError(null);
-          try {
-            await login({ emailOrUsername: emailOrUsername.trim(), password });
-          } catch (e: any) {
-            setError(e?.message ?? 'Login failed');
-          } finally {
-            setSubmitting(false);
-          }
-        }}
-        style={[styles.button, { backgroundColor: tint }, !canSubmit && styles.buttonDisabled]}>
-        <ThemedText type="defaultSemiBold">{submitting ? 'Signing in…' : 'Sign in'}</ThemedText>
-      </Pressable>
+          <Button
+            disabled={!canSubmit}
+            onPress={async () => {
+              setSubmitting(true);
+              setError(null);
+              try {
+                await login({ emailOrUsername: emailOrUsername.trim(), password });
+              } catch (e: any) {
+                setError(e?.message ?? 'Login failed');
+              } finally {
+                setSubmitting(false);
+              }
+            }}>
+            <Text>{submitting ? 'Signing in...' : 'Sign in'}</Text>
+          </Button>
 
-      <Pressable onPress={() => router.push('/(auth)/register' as any)} style={styles.linkButton}>
-        <ThemedText type="link">New here? Create an account</ThemedText>
-      </Pressable>
-    </ThemedView>
+          <Button variant="link" onPress={() => router.push('/(auth)/register' as any)}>
+            <Text>New here? Create an account</Text>
+          </Button>
+        </CardContent>
+      </Card>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    gap: 14,
-    justifyContent: 'center',
-  },
-  field: {
-    gap: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  button: {
-    marginTop: 8,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  errorText: {
-    fontSize: 14,
-  },
-  linkButton: {
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-});
 
