@@ -1,11 +1,15 @@
 import React from 'react';
 import { Pressable, SectionList, StyleSheet, View } from 'react-native';
 import { BellRing, Bus, ChevronLeft, ChevronRight, MapPin, UserCheck } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { RestrictedTabContent } from '@/components/access/restricted-tab-content';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { useParentAccess } from '@/src/hooks/useParentAccess';
 import { useMarkNotificationRead, useNotifications } from '@/src/hooks/useNotifications';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import type { NotificationItem } from '@/src/types/notification';
@@ -16,6 +20,9 @@ type NotificationSection = {
 };
 
 export default function NotificationsTab() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const access = useParentAccess();
   const notifications = useNotifications({ limit: 50, offset: 0 });
   const markRead = useMarkNotificationRead();
   const borderColor = useThemeColor({}, 'border');
@@ -23,6 +30,7 @@ export default function NotificationsTab() {
   const tint = useThemeColor({}, 'tint');
   const errorColor = useThemeColor({}, 'destructive');
   const iconColor = useThemeColor({}, 'icon');
+  const highlightBackground = useThemeColor({ light: '#eaf2ff', dark: '#132238' }, 'background');
   const sections = React.useMemo(
     () => groupNotificationsByDate((notifications.data?.data ?? []) as NotificationItem[]),
     [notifications.data?.data]
@@ -30,7 +38,15 @@ export default function NotificationsTab() {
   const latestId = notifications.data?.data?.[0]?.id;
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={[styles.container, { paddingTop: insets.top + 12 }]}>
+      <RestrictedTabContent
+        resolving={access.isResolving}
+        restricted={access.isRestricted}
+        title="Student access required"
+        subtitle="Notifications are available after an admin assigns at least one student to your account."
+        onRetry={() => {
+          void access.refetch();
+        }}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <ChevronLeft color={iconColor} size={20} />
@@ -65,12 +81,13 @@ export default function NotificationsTab() {
           const isRead = Boolean(item.read);
           const isHighlighted = String(item.id) === String(latestId);
           const status = resolveStatus(item);
+          const action = resolveNotificationAction(item);
 
           return (
             <Card
               style={[
                 styles.card,
-                { borderColor, backgroundColor: isHighlighted ? '#ffe780' : cardBackground },
+                { borderColor, backgroundColor: isHighlighted ? highlightBackground : cardBackground },
               ]}>
               <CardContent style={styles.cardBody}>
                 <View style={styles.rowTop}>
@@ -79,7 +96,11 @@ export default function NotificationsTab() {
                     <ThemedText type="defaultSemiBold">{resolveTitle(item)}</ThemedText>
                   </View>
                   <Badge variant={isRead ? 'secondary' : 'default'}>
-                    <ThemedText>{isRead ? 'Read' : 'Unread'}</ThemedText>
+                    <ThemedText
+                      lightColor={isRead ? '#334155' : '#ffffff'}
+                      darkColor={isRead ? '#cbd5e1' : '#020617'}>
+                      {isRead ? 'Read' : 'Unread'}
+                    </ThemedText>
                   </Badge>
                 </View>
                 {item.body ? <ThemedText>{item.body}</ThemedText> : null}
@@ -97,6 +118,24 @@ export default function NotificationsTab() {
                     </ThemedText>
                   </Pressable>
                 ) : null}
+                {action ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => {
+                      if (action.type === 'tracking') {
+                        router.push(`/children/${action.studentId}/tracking` as any);
+                        return;
+                      }
+                      if (action.type === 'child') {
+                        router.push(`/children/${action.studentId}` as any);
+                        return;
+                      }
+                      router.push('/(tabs)/billing' as any);
+                    }}
+                    style={[styles.secondaryButton, { borderColor }]}>
+                    <ThemedText type="defaultSemiBold">{action.label}</ThemedText>
+                  </Pressable>
+                ) : null}
               </CardContent>
             </Card>
           );
@@ -105,6 +144,7 @@ export default function NotificationsTab() {
           notifications.isLoading ? null : <ThemedText>No notifications yet.</ThemedText>
         }
       />
+      </RestrictedTabContent>
     </ThemedView>
   );
 }
@@ -146,6 +186,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 12,
     alignItems: 'center',
+  },
+  secondaryButton: {
+    borderWidth: 1,
+    borderRadius: 12,
+    alignItems: 'center',
+    paddingVertical: 9,
   },
   errorText: { fontSize: 14 },
 });
@@ -217,5 +263,24 @@ function resolveStatus(item: NotificationItem) {
     return { icon: <BellRing size={16} color="#2b2b2b" />, route };
   }
   return { icon: <BellRing size={16} color="#2b2b2b" />, route };
+}
+
+function resolveNotificationAction(item: NotificationItem):
+  | { label: string; type: 'tracking' | 'child' | 'billing'; studentId?: string }
+  | null {
+  const source = item as Record<string, unknown>;
+  const studentId = String(source.studentId ?? source.student_id ?? source.childId ?? source.child_id ?? '');
+  const text = `${String(item.title ?? '')} ${String(item.body ?? '')} ${String(item.type ?? '')}`.toLowerCase();
+
+  if ((text.includes('bus') || text.includes('route') || text.includes('approach')) && studentId) {
+    return { label: 'Open live tracking', type: 'tracking', studentId };
+  }
+  if ((text.includes('board') || text.includes('reach') || text.includes('attendance')) && studentId) {
+    return { label: 'Open student details', type: 'child', studentId };
+  }
+  if (text.includes('payment') || text.includes('invoice') || text.includes('due')) {
+    return { label: 'Open billing', type: 'billing' };
+  }
+  return null;
 }
 

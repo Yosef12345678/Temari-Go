@@ -2,26 +2,39 @@ import React from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ChevronRight } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AppBrand } from '@/components/app-brand';
+import { RestrictedTabContent } from '@/components/access/restricted-tab-content';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { useParentAccess } from '@/src/hooks/useParentAccess';
 import { useStudentsList } from '@/src/hooks/useStudents';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import type { StudentListItem } from '@/src/types/student';
 
 export default function ChildrenTab() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const students = useStudentsList();
+  const access = useParentAccess();
   const borderColor = useThemeColor({}, 'border');
   const cardBackground = useThemeColor({}, 'background');
   const errorColor = useThemeColor({}, 'destructive');
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={[styles.container, { paddingTop: insets.top + 12 }]}>
+      <RestrictedTabContent
+        resolving={access.isResolving}
+        restricted={access.isRestricted}
+        title="Student access required"
+        subtitle="Student registration is managed by admins. Contact admin to assign a child to your account."
+        onRetry={() => {
+          void access.refetch();
+        }}>
       <AppBrand subtitle="Your children" />
 
       {students.isLoading ? <ThemedText>Loading…</ThemedText> : null}
@@ -74,6 +87,7 @@ export default function ChildrenTab() {
           students.isLoading ? null : <ThemedText>No students found for this parent.</ThemedText>
         }
       />
+      </RestrictedTabContent>
     </ThemedView>
   );
 }

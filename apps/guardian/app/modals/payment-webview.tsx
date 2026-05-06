@@ -17,6 +17,20 @@ export default function PaymentWebViewModal() {
     return typeof u === 'string' ? u : '';
   }, [params.url]);
 
+  const resolveStatus = (nextUrl: string) => {
+    const lowered = nextUrl.toLowerCase();
+    if (lowered.includes('success') || lowered.includes('status=completed') || lowered.includes('status=success')) {
+      return 'success';
+    }
+    if (lowered.includes('cancel') || lowered.includes('status=cancelled')) {
+      return 'cancelled';
+    }
+    if (lowered.includes('failed') || lowered.includes('error') || lowered.includes('status=failed')) {
+      return 'failed';
+    }
+    return null;
+  };
+
   return (
     <ThemedView style={styles.container}>
       <View style={[styles.header, { borderBottomColor: borderColor }]}>
@@ -31,7 +45,15 @@ export default function PaymentWebViewModal() {
           <ThemedText>No checkout URL provided.</ThemedText>
         </View>
       ) : (
-        <WebView source={{ uri: url }} startInLoadingState />
+        <WebView
+          source={{ uri: url }}
+          startInLoadingState
+          onNavigationStateChange={(state) => {
+            const status = resolveStatus(state.url);
+            if (!status) return;
+            router.replace({ pathname: '/(tabs)/billing', params: { paymentStatus: status } } as any);
+          }}
+        />
       )}
     </ThemedView>
   );

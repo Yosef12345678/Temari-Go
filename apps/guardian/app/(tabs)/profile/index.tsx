@@ -1,6 +1,8 @@
 import React from 'react';
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { CircleHelp, Globe, LogOut, MoonStar, ShieldCheck, UserRound } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -15,6 +17,8 @@ import { useMe } from '@/src/hooks/useMe';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 export default function ProfileTab() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { logout } = useAuth();
   const me = useMe();
   const borderColor = useThemeColor({}, 'border');
@@ -31,7 +35,7 @@ export default function ProfileTab() {
   const serverLang = String(me.data?.language_preference ?? '—');
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={[styles.container, { paddingTop: insets.top + 12 }]}>
       <ScrollView
         contentContainerStyle={styles.scrollBody}
         refreshControl={<RefreshControl refreshing={me.isRefetching} onRefresh={() => void me.refetch()} />}>
@@ -143,9 +147,7 @@ export default function ProfileTab() {
             <Pressable
               accessibilityRole="button"
               style={[styles.supportButton, { borderColor }]}
-              onPress={() => {
-                Alert.alert('Help Desk', 'Help desk chat link placeholder. You can provide iframe/chat URL and I will wire it.');
-              }}>
+              onPress={() => router.push('/modals/helpdesk' as any)}>
               <View style={styles.prefLeft}>
                 <CircleHelp color={iconColor} size={16} />
                 <View>

@@ -60,26 +60,27 @@ export default function LoginScreen() {
       </View>
 
       <View className="gap-2">
-        <View className="flex-row items-center justify-between">
-          <Label>Password</Label>
+        <Label>Password</Label>
+        <View className="relative">
+          <Input
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            editable={!submitting}
+            returnKeyType="go"
+            onSubmitEditing={() => void handleSubmit()}
+            placeholder="••••••••"
+            accessibilityLabel="Password"
+            className="pr-10"
+          />
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
             onPress={() => setShowPassword((prev) => !prev)}
-            className="flex-row items-center gap-1">
-            {showPassword ? <EyeOff color={iconColor} size={14} /> : <Eye color={iconColor} size={14} />}
-            <Text className="text-sm">{showPassword ? 'Hide' : 'Show'}</Text>
+            className="absolute right-3 top-1/2 -translate-y-1/2">
+            {showPassword ? <EyeOff color={iconColor} size={16} /> : <Eye color={iconColor} size={16} />}
           </Pressable>
         </View>
-        <Input
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={!showPassword}
-          editable={!submitting}
-          returnKeyType="go"
-          onSubmitEditing={() => void handleSubmit()}
-          placeholder="••••••••"
-          accessibilityLabel="Password"
-        />
       </View>
 
       {error ? <Text className="text-destructive text-sm">{error}</Text> : null}

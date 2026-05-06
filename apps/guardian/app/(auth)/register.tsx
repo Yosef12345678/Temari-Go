@@ -108,42 +108,50 @@ export default function ParentRegistrationScreen() {
       </View>
 
       <View className="gap-2">
-        <View className="flex-row items-center justify-between">
-          <Label>Password *</Label>
-          <Pressable onPress={() => setShowPassword((prev) => !prev)} className="flex-row items-center gap-1">
-            {showPassword ? <EyeOff color={iconColor} size={14} /> : <Eye color={iconColor} size={14} />}
-            <Text className="text-sm">{showPassword ? 'Hide' : 'Show'}</Text>
+        <Label>Password *</Label>
+        <View className="relative">
+          <Input
+            value={password}
+            onChangeText={setPassword}
+            placeholder="••••••••"
+            secureTextEntry={!showPassword}
+            autoCapitalize="none"
+            editable={!submitting}
+            returnKeyType="next"
+            className="pr-10"
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+            onPress={() => setShowPassword((prev) => !prev)}
+            className="absolute right-3 top-1/2 -translate-y-1/2">
+            {showPassword ? <EyeOff color={iconColor} size={16} /> : <Eye color={iconColor} size={16} />}
           </Pressable>
         </View>
-        <Input
-          value={password}
-          onChangeText={setPassword}
-          placeholder="••••••••"
-          secureTextEntry={!showPassword}
-          autoCapitalize="none"
-          editable={!submitting}
-          returnKeyType="next"
-        />
         {passwordError ? <Text className="text-destructive text-sm">{passwordError}</Text> : null}
       </View>
 
       <View className="gap-2">
-        <View className="flex-row items-center justify-between">
-          <Label>Confirm password *</Label>
-          <Pressable onPress={() => setShowConfirmPassword((prev) => !prev)} className="flex-row items-center gap-1">
-            {showConfirmPassword ? <EyeOff color={iconColor} size={14} /> : <Eye color={iconColor} size={14} />}
-            <Text className="text-sm">{showConfirmPassword ? 'Hide' : 'Show'}</Text>
+        <Label>Confirm password *</Label>
+        <View className="relative">
+          <Input
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            placeholder="••••••••"
+            secureTextEntry={!showConfirmPassword}
+            autoCapitalize="none"
+            editable={!submitting}
+            returnKeyType="next"
+            className="pr-10"
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+            onPress={() => setShowConfirmPassword((prev) => !prev)}
+            className="absolute right-3 top-1/2 -translate-y-1/2">
+            {showConfirmPassword ? <EyeOff color={iconColor} size={16} /> : <Eye color={iconColor} size={16} />}
           </Pressable>
         </View>
-        <Input
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          placeholder="••••••••"
-          secureTextEntry={!showConfirmPassword}
-          autoCapitalize="none"
-          editable={!submitting}
-          returnKeyType="next"
-        />
         {confirmPasswordError ? <Text className="text-destructive text-sm">{confirmPasswordError}</Text> : null}
       </View>
 

@@ -42,10 +42,12 @@ export default function ChildDetailScreen() {
   const borderColor = useThemeColor({}, 'border');
   const tint = useThemeColor({}, 'tint');
   const errorColor = useThemeColor({}, 'destructive');
-  const yellow = '#f6cf47';
+  const emphasisBorder = useThemeColor({ light: '#93c5fd', dark: '#1d4ed8' }, 'border');
+  const emphasisBackground = useThemeColor({ light: '#eaf2ff', dark: '#132238' }, 'background');
+  const emphasisSoftBackground = useThemeColor({ light: '#f4f8ff', dark: '#0e1a2f' }, 'background');
 
   const studentName = String(student.full_name ?? 'Student');
-  const schoolName = String(student.school_name ?? student.schoolName ?? 'International School');
+  const schoolName = String(student.school_name ?? student.schoolName ?? 'School not available');
   const studentGrade = String(student.grade ?? '-');
   const studentCode = String(student.student_id ?? student.studentId ?? student.id ?? id ?? '-');
 
@@ -231,7 +233,7 @@ export default function ChildDetailScreen() {
               contentContainerStyle={styles.scrollBody}
               showsVerticalScrollIndicator={false}
               refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}>
-              <Card style={[styles.travelCard, { borderColor: yellow }]}>
+              <Card style={[styles.travelCard, { borderColor: emphasisBorder, backgroundColor: emphasisBackground }]}>
                 <CardHeader>
                   <CardTitle>Travel Utility Menu</CardTitle>
                 </CardHeader>
@@ -260,9 +262,7 @@ export default function ChildDetailScreen() {
                   <TravelActionRow
                     icon={<CircleHelp color="#2b2b2b" size={18} />}
                     title="Helpdesk"
-                    onPress={() => {
-                      Alert.alert('Helpdesk', 'Support is available at support@temari.app');
-                    }}
+                    onPress={() => router.push('/modals/helpdesk' as any)}
                   />
                 </CardContent>
               </Card>
@@ -319,7 +319,7 @@ export default function ChildDetailScreen() {
               contentContainerStyle={styles.scrollBody}
               showsVerticalScrollIndicator={false}
               refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}>
-              <Card style={[styles.etaCard, { borderColor: yellow }]}>
+              <Card style={[styles.etaCard, { borderColor: emphasisBorder, backgroundColor: emphasisBackground }]}>
                 <CardHeader style={styles.attendanceTopHeader}>
                   <View>
                     <CardTitle>Trip Status</CardTitle>
@@ -344,10 +344,10 @@ export default function ChildDetailScreen() {
                       <ThemedText>Vehicle {busId || 'Unassigned'}</ThemedText>
                     </Badge>
                     <Badge variant="outline">
-                      <ThemedText>Route Name: {String(student.route_name ?? '12')}</ThemedText>
+                      <ThemedText>Route Name: {String(student.route_name ?? 'Not available')}</ThemedText>
                     </Badge>
                     <Badge variant="outline">
-                      <ThemedText>Stop: {String(student.stop_name ?? 'Sector-17, Noida')}</ThemedText>
+                      <ThemedText>Stop: {String(student.stop_name ?? 'Not available')}</ThemedText>
                     </Badge>
                   </View>
                 </CardContent>
@@ -386,7 +386,14 @@ export default function ChildDetailScreen() {
                   ) : null}
 
                   {attendanceRows.map((row) => (
-                    <View key={row.key} style={[styles.dayCard, row.isToday ? [styles.dayCardHighlight, { borderColor: yellow }] : [styles.dayCardMuted, { borderColor }]]}>
+                    <View
+                      key={row.key}
+                      style={[
+                        styles.dayCard,
+                        row.isToday
+                          ? [styles.dayCardHighlight, { borderColor: emphasisBorder, backgroundColor: emphasisSoftBackground }]
+                          : [styles.dayCardMuted, { borderColor }],
+                      ]}>
                       <View style={styles.dayHeader}>
                         <ThemedText type="defaultSemiBold">{row.dayLabel}</ThemedText>
                         <Badge variant={row.isToday ? 'default' : 'secondary'}>
@@ -476,14 +483,14 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   travelCard: {
-    backgroundColor: '#ffe780',
+    backgroundColor: '#ffffff',
   },
   travelMenu: {
     gap: 10,
   },
   travelRow: {
     borderRadius: 12,
-    backgroundColor: '#fff4bf',
+    backgroundColor: '#f4f8ff',
     paddingHorizontal: 12,
     paddingVertical: 12,
     flexDirection: 'row',
@@ -535,7 +542,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   etaCard: {
-    backgroundColor: '#ffe780',
+    backgroundColor: '#ffffff',
   },
   attendanceTopHeader: {
     flexDirection: 'row',
@@ -596,7 +603,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   dayCardHighlight: {
-    backgroundColor: '#fff8cc',
+    backgroundColor: '#f4f8ff',
   },
   dayCardMuted: {
     backgroundColor: '#ffffff',

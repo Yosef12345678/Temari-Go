@@ -74,6 +74,7 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
           <Stack.Screen name="modals/payment-webview" options={{ presentation: 'modal', title: 'Payment' }} />
+          <Stack.Screen name="modals/helpdesk" options={{ presentation: 'modal', title: 'Help Desk' }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>
         <StatusBar style={activeTheme === 'dark' ? 'light' : 'dark'} />
