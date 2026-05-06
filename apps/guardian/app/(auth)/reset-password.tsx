@@ -1,13 +1,131 @@
-import React from 'react';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import React, { useMemo, useState } from 'react';
+import { Pressable, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Eye, EyeOff } from 'lucide-react-native';
+
+import { AuthScreenShell } from '@/components/auth/auth-screen-shell';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Text } from '@/components/ui/text';
+import { useThemeColor } from '@/hooks/use-theme-color';
+import * as authApi from '@/src/api/auth';
+
+function validateCode(value: string) {
+  if (!value.trim()) return 'Reset code is required.';
+  return null;
+}
+
+function validatePassword(value: string) {
+  if (value.length < 6) return 'Password must be at least 6 characters.';
+  return null;
+}
 
 export default function ResetPasswordScreen() {
+  const router = useRouter();
+  const iconColor = useThemeColor({}, 'icon');
+  const [code, setCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const codeError = useMemo(() => validateCode(code), [code]);
+  const passwordError = useMemo(() => validatePassword(newPassword), [newPassword]);
+  const confirmPasswordError = useMemo(
+    () => (confirmPassword === newPassword ? null : 'Passwords do not match.'),
+    [confirmPassword, newPassword]
+  );
+  const canSubmit = !codeError && !passwordError && !confirmPasswordError && !submitting;
+
   return (
-    <ThemedView style={{ flex: 1, padding: 16, justifyContent: 'center' }}>
-      <ThemedText type="title">Reset password</ThemedText>
-      <ThemedText>TODO: wire to POST /auth/reset-password</ThemedText>
-    </ThemedView>
+    <AuthScreenShell subtitle="Password Recovery" title="Reset password" description="Enter the code and your new password.">
+      {!done ? (
+        <>
+          <View className="gap-2">
+            <Label>Reset Code</Label>
+            <Input
+              value={code}
+              onChangeText={setCode}
+              editable={!submitting}
+              autoCapitalize="none"
+              placeholder="Enter reset code"
+              returnKeyType="next"
+            />
+            {codeError ? <Text className="text-destructive text-sm">{codeError}</Text> : null}
+          </View>
+
+          <View className="gap-2">
+            <View className="flex-row items-center justify-between">
+              <Label>New Password</Label>
+              <Pressable onPress={() => setShowPassword((prev) => !prev)} className="flex-row items-center gap-1">
+                {showPassword ? <EyeOff color={iconColor} size={14} /> : <Eye color={iconColor} size={14} />}
+                <Text className="text-sm">{showPassword ? 'Hide' : 'Show'}</Text>
+              </Pressable>
+            </View>
+            <Input
+              value={newPassword}
+              onChangeText={setNewPassword}
+              secureTextEntry={!showPassword}
+              editable={!submitting}
+              autoCapitalize="none"
+              placeholder="••••••••"
+              returnKeyType="next"
+            />
+            {passwordError ? <Text className="text-destructive text-sm">{passwordError}</Text> : null}
+          </View>
+
+          <View className="gap-2">
+            <View className="flex-row items-center justify-between">
+              <Label>Confirm Password</Label>
+              <Pressable onPress={() => setShowConfirmPassword((prev) => !prev)} className="flex-row items-center gap-1">
+                {showConfirmPassword ? <EyeOff color={iconColor} size={14} /> : <Eye color={iconColor} size={14} />}
+                <Text className="text-sm">{showConfirmPassword ? 'Hide' : 'Show'}</Text>
+              </Pressable>
+            </View>
+            <Input
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry={!showConfirmPassword}
+              editable={!submitting}
+              autoCapitalize="none"
+              placeholder="••••••••"
+              returnKeyType="done"
+            />
+            {confirmPasswordError ? <Text className="text-destructive text-sm">{confirmPasswordError}</Text> : null}
+          </View>
+
+          {error ? <Text className="text-destructive text-sm">{error}</Text> : null}
+
+          <Button
+            disabled={!canSubmit}
+            onPress={async () => {
+              setSubmitting(true);
+              setError(null);
+              try {
+                await authApi.resetPassword({ code: code.trim(), newPassword });
+                setDone(true);
+              } catch (e: any) {
+                setError(e?.message ?? 'Unable to reset password. Please verify your code.');
+              } finally {
+                setSubmitting(false);
+              }
+            }}>
+            <Text>{submitting ? 'Resetting...' : 'Reset password'}</Text>
+          </Button>
+        </>
+      ) : (
+        <>
+          <Text className="text-sm">Your password has been reset successfully.</Text>
+          <Button onPress={() => router.replace('/(auth)/login' as any)}>
+            <Text>Go to sign in</Text>
+          </Button>
+        </>
+      )}
+    </AuthScreenShell>
   );
 }
 

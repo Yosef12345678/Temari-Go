@@ -22,7 +22,32 @@ export function useMarkNotificationRead() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => notificationsApi.markRead(id),
-    onSuccess: async () => {
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: ['notifications'] });
+
+      const previousQueries = qc.getQueriesData({ queryKey: ['notifications'] });
+
+      previousQueries.forEach(([key, value]) => {
+        if (!value || typeof value !== 'object' || !('data' in value) || !Array.isArray((value as any).data)) {
+          return;
+        }
+
+        qc.setQueryData(key, {
+          ...(value as Record<string, unknown>),
+          data: (value as any).data.map((item: Record<string, unknown>) =>
+            String(item.id ?? '') === id ? { ...item, read: true } : item
+          ),
+        });
+      });
+
+      return { previousQueries };
+    },
+    onError: (_error, _id, context) => {
+      context?.previousQueries?.forEach(([key, value]) => {
+        qc.setQueryData(key, value);
+      });
+    },
+    onSettled: async () => {
       await qc.invalidateQueries({ queryKey: ['notifications'] });
     },
   });

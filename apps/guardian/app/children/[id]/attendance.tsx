@@ -24,6 +24,8 @@ export default function ChildAttendanceScreen() {
       <FlatList
         data={q.data ?? []}
         keyExtractor={(item: any, idx) => String(item.id ?? idx)}
+        refreshing={q.isRefetching}
+        onRefresh={() => void q.refetch()}
         renderItem={({ item }: any) => (
           <View style={[styles.card, { borderColor, backgroundColor: cardBackground }]}>
             <ThemedText type="defaultSemiBold">{String(item.type ?? '-')}</ThemedText>

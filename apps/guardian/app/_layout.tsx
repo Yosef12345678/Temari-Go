@@ -24,14 +24,17 @@ function AuthGate() {
   const { session } = useAuth();
   const meQuery = useMe();
 
+  const hasSegments = segments.length > 0;
   const inAuthGroup = segments[0] === '(auth)';
-  const inTabsGroup = segments[0] === '(tabs)';
 
   // While restoring session or fetching /users/me, show a lightweight spinner.
-  const isBusy = session.status === 'unknown' || (session.status === 'authenticated' && (meQuery.isLoading || meQuery.isFetching));
+  const isBusy =
+    !hasSegments ||
+    session.status === 'unknown' ||
+    (session.status === 'authenticated' && (meQuery.isLoading || meQuery.isFetching));
 
   useEffect(() => {
-    if (session.status === 'unknown') return;
+    if (!hasSegments || session.status === 'unknown') return;
 
     if (session.status === 'unauthenticated') {
       if (!inAuthGroup) router.replace('/(auth)/login' as any);
@@ -42,9 +45,10 @@ function AuthGate() {
     // Best-effort device registration (push token)
     void registerPushTokenOncePerBoot();
 
-    // Do not enforce profile completion: if logged in, go to home.
-    if (!inTabsGroup) router.replace('/(tabs)/children' as any);
-  }, [session.status, inAuthGroup, inTabsGroup, router]);
+    // Do not enforce profile completion: if user is on auth routes, send to home.
+    // Keep other authenticated routes accessible (e.g. /billing/pay, /children/[id]).
+    if (inAuthGroup) router.replace('/(tabs)/children' as any);
+  }, [hasSegments, session.status, inAuthGroup, router]);
 
   if (isBusy) {
     return (

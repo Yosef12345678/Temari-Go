@@ -1,8 +1,15 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { CircleHelp, Globe, LogOut, MoonStar, ShieldCheck, UserRound } from 'lucide-react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/src/hooks/useAuth';
 import { useMe } from '@/src/hooks/useMe';
 import { useThemeColor } from '@/hooks/use-theme-color';
@@ -12,49 +19,233 @@ export default function ProfileTab() {
   const me = useMe();
   const borderColor = useThemeColor({}, 'border');
   const cardBackground = useThemeColor({}, 'background');
-  const tint = useThemeColor({}, 'tint');
   const errorColor = useThemeColor({}, 'destructive');
+  const iconColor = useThemeColor({}, 'icon');
+  const [themeEnabled, setThemeEnabled] = React.useState(false);
+  const [language, setLanguage] = React.useState<'english' | 'amharic'>('english');
+
+  const accountName = String(me.data?.name ?? 'Guardian');
+  const accountEmail = String(me.data?.email ?? '—');
+  const accountPhone = String(me.data?.phone_number ?? '—');
+  const role = String(me.data?.role ?? 'Parent');
+  const serverLang = String(me.data?.language_preference ?? '—');
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="title">Profile</ThemedText>
+      <ScrollView
+        contentContainerStyle={styles.scrollBody}
+        refreshControl={<RefreshControl refreshing={me.isRefetching} onRefresh={() => void me.refetch()} />}>
+        <ThemedText type="title">Profile</ThemedText>
 
-      {me.isLoading ? <ThemedText>Loading…</ThemedText> : null}
-      {me.error ? (
-        <ThemedText style={[styles.errorText, { color: errorColor }]}>{(me.error as any)?.message ?? 'Failed'}</ThemedText>
-      ) : null}
+        {me.isLoading ? <ThemedText>Loading…</ThemedText> : null}
+        {me.error ? (
+          <ThemedText style={[styles.errorText, { color: errorColor }]}>{(me.error as any)?.message ?? 'Failed'}</ThemedText>
+        ) : null}
 
-      {me.data ? (
-        <View style={[styles.card, { borderColor, backgroundColor: cardBackground }]}>
-          <ThemedText type="defaultSemiBold">{String(me.data.name ?? '—')}</ThemedText>
-          <ThemedText>Email: {String(me.data.email ?? '—')}</ThemedText>
-          <ThemedText>Phone: {String(me.data.phone_number ?? '—')}</ThemedText>
-          <ThemedText>Language: {String(me.data.language_preference ?? '—')}</ThemedText>
-          <ThemedText>Role: {String(me.data.role ?? '—')}</ThemedText>
-        </View>
-      ) : null}
+        <Card style={[styles.heroCard, { borderColor, backgroundColor: cardBackground }]}>
+          <CardContent style={styles.heroBody}>
+            <Avatar className="size-14" alt={`${accountName} avatar`}>
+              <AvatarImage source={{ uri: String((me.data as any)?.avatar_url ?? '') }} />
+              <AvatarFallback>
+                <ThemedText type="defaultSemiBold">{getInitials(accountName)}</ThemedText>
+              </AvatarFallback>
+            </Avatar>
+            <View style={styles.heroText}>
+              <ThemedText type="defaultSemiBold">{accountName}</ThemedText>
+              <ThemedText>{accountEmail}</ThemedText>
+              <View style={styles.badges}>
+                <Badge variant="secondary">
+                  <ThemedText>{role}</ThemedText>
+                </Badge>
+                <Badge variant="outline">
+                  <ThemedText>Lang: {serverLang}</ThemedText>
+                </Badge>
+              </View>
+            </View>
+          </CardContent>
+        </Card>
 
-      <Pressable onPress={() => void logout()} style={[styles.button, { backgroundColor: tint }]}>
-        <ThemedText type="defaultSemiBold">Log out</ThemedText>
-      </Pressable>
+        <Card style={[styles.sectionCard, { borderColor, backgroundColor: cardBackground }]}>
+          <CardHeader>
+            <CardTitle>Account</CardTitle>
+          </CardHeader>
+          <CardContent style={styles.sectionContent}>
+            <SettingRow
+              icon={<UserRound color={iconColor} size={16} />}
+              label="Phone"
+              value={accountPhone}
+              borderColor={borderColor}
+            />
+            <SettingRow
+              icon={<ShieldCheck color={iconColor} size={16} />}
+              label="Role"
+              value={role}
+              borderColor={borderColor}
+            />
+          </CardContent>
+        </Card>
+
+        <Card style={[styles.sectionCard, { borderColor, backgroundColor: cardBackground }]}>
+          <CardHeader>
+            <CardTitle>Preferences</CardTitle>
+          </CardHeader>
+          <CardContent style={styles.sectionContent}>
+            <View style={[styles.prefRow, { borderColor }]}>
+              <View style={styles.prefLeft}>
+                <Globe color={iconColor} size={16} />
+                <View>
+                  <ThemedText type="defaultSemiBold">Language</ThemedText>
+                  <ThemedText>Select app language</ThemedText>
+                </View>
+              </View>
+              <View style={styles.langActions}>
+                <Button
+                  variant={language === 'english' ? 'default' : 'outline'}
+                  size="sm"
+                  onPress={() => setLanguage('english')}>
+                  <ThemedText>English</ThemedText>
+                </Button>
+                <Button
+                  variant={language === 'amharic' ? 'default' : 'outline'}
+                  size="sm"
+                  onPress={() => setLanguage('amharic')}>
+                  <ThemedText>Amharic</ThemedText>
+                </Button>
+              </View>
+            </View>
+
+            <Separator />
+
+            <View style={[styles.prefRow, { borderColor }]}>
+              <View style={styles.prefLeft}>
+                <MoonStar color={iconColor} size={16} />
+                <View>
+                  <ThemedText type="defaultSemiBold">Theme</ThemedText>
+                  <ThemedText>Dark mode toggle (placeholder)</ThemedText>
+                </View>
+              </View>
+              <Switch
+                checked={themeEnabled}
+                onCheckedChange={(checked) => {
+                  setThemeEnabled(Boolean(checked));
+                  Alert.alert('Theme toggle', 'Theme switching will be connected in the next iteration.');
+                }}
+              />
+            </View>
+          </CardContent>
+        </Card>
+
+        <Card style={[styles.sectionCard, { borderColor, backgroundColor: cardBackground }]}>
+          <CardHeader>
+            <CardTitle>Support</CardTitle>
+          </CardHeader>
+          <CardContent style={styles.sectionContent}>
+            <Pressable
+              accessibilityRole="button"
+              style={[styles.supportButton, { borderColor }]}
+              onPress={() => {
+                Alert.alert('Help Desk', 'Help desk chat link placeholder. You can provide iframe/chat URL and I will wire it.');
+              }}>
+              <View style={styles.prefLeft}>
+                <CircleHelp color={iconColor} size={16} />
+                <View>
+                  <ThemedText type="defaultSemiBold">Help Desk</ThemedText>
+                  <ThemedText>Open support chat</ThemedText>
+                </View>
+              </View>
+            </Pressable>
+          </CardContent>
+        </Card>
+
+        <Button variant="destructive" onPress={() => void logout()}>
+          <LogOut color="#ffffff" size={16} />
+          <ThemedText>Log out</ThemedText>
+        </Button>
+      </ScrollView>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, gap: 12 },
-  card: {
+  scrollBody: { gap: 12, paddingBottom: 28 },
+  heroCard: {
     borderWidth: 1,
-    borderRadius: 14,
-    padding: 14,
-    gap: 6,
   },
-  button: {
-    marginTop: 8,
-    paddingVertical: 12,
-    borderRadius: 12,
+  heroBody: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+  },
+  heroText: {
+    gap: 4,
+    flex: 1,
+  },
+  badges: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  sectionCard: {
+    borderWidth: 1,
+  },
+  sectionContent: {
+    gap: 10,
+  },
+  prefRow: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 10,
+  },
+  prefLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  langActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  supportButton: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   errorText: { fontSize: 14 },
 });
+
+function getInitials(name: string) {
+  const parts = name.trim().split(/\s+/).slice(0, 2);
+  return parts.length ? parts.map((part) => part.charAt(0).toUpperCase()).join('') : 'U';
+}
+
+function SettingRow({
+  icon,
+  label,
+  value,
+  borderColor,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  borderColor: string;
+}) {
+  return (
+    <View style={[styles.prefRow, { borderColor }]}>
+      <View style={styles.prefLeft}>
+        {icon}
+        <ThemedText type="defaultSemiBold">{label}</ThemedText>
+      </View>
+      <ThemedText>{value}</ThemedText>
+    </View>
+  );
+}
 

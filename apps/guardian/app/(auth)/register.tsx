@@ -1,13 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Eye, EyeOff } from 'lucide-react-native';
 
-import { AppBrand } from '@/components/app-brand';
+import { AuthScreenShell } from '@/components/auth/auth-screen-shell';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import { useAuth } from '@/src/hooks/useAuth';
 import { validateLanguagePreference, validatePhone } from '@/src/utils/validators';
 
@@ -26,11 +27,15 @@ export default function ParentRegistrationScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [phone_number, setPhoneNumber] = useState('');
-  const [language_preference, setLanguagePreference] = useState('');
+  const [language_preference, setLanguagePreference] = useState<'en' | 'am'>('en');
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const iconColor = useThemeColor({}, 'icon');
 
   const nameError = useMemo(() => (name.trim() ? null : 'Name is required.'), [name]);
   const emailError = useMemo(() => validateEmail(email), [email]);
@@ -38,108 +43,155 @@ export default function ParentRegistrationScreen() {
     () => (password.length >= 6 ? null : 'Password must be at least 6 characters.'),
     [password]
   );
+  const confirmPasswordError = useMemo(
+    () => (confirmPassword === password ? null : 'Passwords do not match.'),
+    [confirmPassword, password]
+  );
   const phoneError = useMemo(() => validatePhone(phone_number), [phone_number]);
   const langError = useMemo(() => validateLanguagePreference(language_preference), [language_preference]);
 
   const canSubmit = useMemo(
     () =>
-      !nameError && !emailError && !passwordError && !phoneError && !langError && password.length > 0 && !submitting,
-    [emailError, langError, nameError, passwordError, password.length, phoneError, submitting]
+      !nameError &&
+      !emailError &&
+      !passwordError &&
+      !confirmPasswordError &&
+      !phoneError &&
+      !langError &&
+      password.length > 0 &&
+      !submitting,
+    [confirmPasswordError, emailError, langError, nameError, passwordError, password.length, phoneError, submitting]
   );
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await register({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+        phone_number: phone_number.trim(),
+        language_preference,
+      });
+    } catch (e: any) {
+      setError(e?.message ?? 'Registration failed');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
-    <View className="bg-background flex-1 justify-center px-4">
-      <AppBrand subtitle="Parent Registration" />
-      <Card className="mt-4">
-        <CardHeader>
-          <CardTitle>Create account</CardTitle>
-          <CardDescription>Sign up and set the details required to continue.</CardDescription>
-        </CardHeader>
-        <CardContent className="gap-4">
-          <View className="gap-2">
-            <Label>Name *</Label>
-            <Input value={name} onChangeText={setName} placeholder="Full name" autoCapitalize="words" />
-            {nameError ? <Text className="text-destructive text-sm">{nameError}</Text> : null}
-          </View>
+    <AuthScreenShell
+      subtitle="Parent Registration"
+      title="Create account"
+      description="Sign up and set the details required to continue.">
+      <View className="gap-2">
+        <Label>Name *</Label>
+        <Input value={name} onChangeText={setName} editable={!submitting} placeholder="Full name" autoCapitalize="words" />
+        {nameError ? <Text className="text-destructive text-sm">{nameError}</Text> : null}
+      </View>
 
-          <View className="gap-2">
-            <Label>Email *</Label>
-            <Input
-              value={email}
-              onChangeText={setEmail}
-              placeholder="email@example.com"
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-            />
-            {emailError ? <Text className="text-destructive text-sm">{emailError}</Text> : null}
-          </View>
+      <View className="gap-2">
+        <Label>Email *</Label>
+        <Input
+          value={email}
+          onChangeText={setEmail}
+          placeholder="email@example.com"
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="email-address"
+          editable={!submitting}
+          returnKeyType="next"
+        />
+        {emailError ? <Text className="text-destructive text-sm">{emailError}</Text> : null}
+      </View>
 
-          <View className="gap-2">
-            <Label>Password *</Label>
-            <Input
-              value={password}
-              onChangeText={setPassword}
-              placeholder="••••••••"
-              secureTextEntry
-              autoCapitalize="none"
-            />
-            {passwordError ? <Text className="text-destructive text-sm">{passwordError}</Text> : null}
-          </View>
+      <View className="gap-2">
+        <View className="flex-row items-center justify-between">
+          <Label>Password *</Label>
+          <Pressable onPress={() => setShowPassword((prev) => !prev)} className="flex-row items-center gap-1">
+            {showPassword ? <EyeOff color={iconColor} size={14} /> : <Eye color={iconColor} size={14} />}
+            <Text className="text-sm">{showPassword ? 'Hide' : 'Show'}</Text>
+          </Pressable>
+        </View>
+        <Input
+          value={password}
+          onChangeText={setPassword}
+          placeholder="••••••••"
+          secureTextEntry={!showPassword}
+          autoCapitalize="none"
+          editable={!submitting}
+          returnKeyType="next"
+        />
+        {passwordError ? <Text className="text-destructive text-sm">{passwordError}</Text> : null}
+      </View>
 
-          <View className="gap-2">
-            <Label>Phone number *</Label>
-            <Input
-              value={phone_number}
-              onChangeText={setPhoneNumber}
-              placeholder="+2519..."
-              keyboardType="phone-pad"
-            />
-            {phoneError ? <Text className="text-destructive text-sm">{phoneError}</Text> : null}
-          </View>
+      <View className="gap-2">
+        <View className="flex-row items-center justify-between">
+          <Label>Confirm password *</Label>
+          <Pressable onPress={() => setShowConfirmPassword((prev) => !prev)} className="flex-row items-center gap-1">
+            {showConfirmPassword ? <EyeOff color={iconColor} size={14} /> : <Eye color={iconColor} size={14} />}
+            <Text className="text-sm">{showConfirmPassword ? 'Hide' : 'Show'}</Text>
+          </Pressable>
+        </View>
+        <Input
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          placeholder="••••••••"
+          secureTextEntry={!showConfirmPassword}
+          autoCapitalize="none"
+          editable={!submitting}
+          returnKeyType="next"
+        />
+        {confirmPasswordError ? <Text className="text-destructive text-sm">{confirmPasswordError}</Text> : null}
+      </View>
 
-          <View className="gap-2">
-            <Label>Language preference *</Label>
-            <Input
-              value={language_preference}
-              onChangeText={setLanguagePreference}
-              placeholder="e.g. en"
-              autoCapitalize="none"
-            />
-            {langError ? <Text className="text-destructive text-sm">{langError}</Text> : null}
-          </View>
+      <View className="gap-2">
+        <Label>Phone number *</Label>
+        <Input
+          value={phone_number}
+          onChangeText={setPhoneNumber}
+          placeholder="+2519..."
+          keyboardType="phone-pad"
+          editable={!submitting}
+          returnKeyType="next"
+        />
+        <Text className="text-muted-foreground text-xs">Use international format, e.g. +2519XXXXXXXX.</Text>
+        {phoneError ? <Text className="text-destructive text-sm">{phoneError}</Text> : null}
+      </View>
 
-          {error ? <Text className="text-destructive text-sm">{error}</Text> : null}
-
+      <View className="gap-2">
+        <Label>Language preference *</Label>
+        <View className="flex-row gap-2">
           <Button
-            disabled={!canSubmit}
-            onPress={async () => {
-              setSubmitting(true);
-              setError(null);
-              try {
-                await register({
-                  name: name.trim(),
-                  email: email.trim(),
-                  password,
-                  phone_number: phone_number.trim(),
-                  language_preference: language_preference.trim(),
-                });
-                // Auth gate will redirect to home on successful login.
-              } catch (e: any) {
-                setError(e?.message ?? 'Registration failed');
-              } finally {
-                setSubmitting(false);
-              }
-            }}>
-            <Text>{submitting ? 'Creating account...' : 'Create account'}</Text>
+            variant={language_preference === 'en' ? 'default' : 'outline'}
+            size="sm"
+            disabled={submitting}
+            onPress={() => setLanguagePreference('en')}>
+            <Text>English</Text>
           </Button>
+          <Button
+            variant={language_preference === 'am' ? 'default' : 'outline'}
+            size="sm"
+            disabled={submitting}
+            onPress={() => setLanguagePreference('am')}>
+            <Text>Amharic</Text>
+          </Button>
+        </View>
+        {langError ? <Text className="text-destructive text-sm">{langError}</Text> : null}
+      </View>
 
-          <Button variant="link" onPress={() => router.push('/(auth)/login' as any)}>
-            <Text>Already have an account? Sign in</Text>
-          </Button>
-        </CardContent>
-      </Card>
-    </View>
+      {error ? <Text className="text-destructive text-sm">{error}</Text> : null}
+
+      <Button disabled={!canSubmit} onPress={() => void handleSubmit()}>
+        <Text>{submitting ? 'Creating account...' : 'Create account'}</Text>
+      </Button>
+
+      <Button variant="link" disabled={submitting} onPress={() => router.push('/(auth)/login' as any)}>
+        <Text>Already have an account? Sign in</Text>
+      </Button>
+    </AuthScreenShell>
   );
 }
 

@@ -1,13 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Eye, EyeOff } from 'lucide-react-native';
 
-import { AppBrand } from '@/components/app-brand';
+import { AuthScreenShell } from '@/components/auth/auth-screen-shell';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import { useAuth } from '@/src/hooks/useAuth';
 
 export default function LoginScreen() {
@@ -17,67 +18,84 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const iconColor = useThemeColor({}, 'icon');
 
   const canSubmit = useMemo(
     () => emailOrUsername.trim().length > 0 && password.length >= 1 && !submitting,
     [emailOrUsername, password, submitting]
   );
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await login({ emailOrUsername: emailOrUsername.trim(), password });
+    } catch (e: any) {
+      setError(e?.message ?? 'Login failed. Please check your credentials and try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
-    <View className="bg-background flex-1 justify-center px-4">
-      <AppBrand subtitle="Parent Login" />
+    <AuthScreenShell
+      subtitle="Parent Login"
+      title="Sign in"
+      description="Use your email or username to continue.">
+      <View className="gap-2">
+        <Label>Email or Username</Label>
+        <Input
+          value={emailOrUsername}
+          onChangeText={setEmailOrUsername}
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="email"
+          keyboardType="email-address"
+          editable={!submitting}
+          returnKeyType="next"
+          placeholder="email@example.com"
+          accessibilityLabel="Email or username"
+        />
+      </View>
 
-      <Card className="mt-4">
-        <CardHeader>
-          <CardTitle>Sign in</CardTitle>
-          <CardDescription>Use your email or username to continue.</CardDescription>
-        </CardHeader>
-        <CardContent className="gap-4">
-          <View className="gap-2">
-            <Label>Email or Username</Label>
-            <Input
-              value={emailOrUsername}
-              onChangeText={setEmailOrUsername}
-              autoCapitalize="none"
-              autoCorrect={false}
-              placeholder="email@example.com"
-            />
-          </View>
+      <View className="gap-2">
+        <View className="flex-row items-center justify-between">
+          <Label>Password</Label>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setShowPassword((prev) => !prev)}
+            className="flex-row items-center gap-1">
+            {showPassword ? <EyeOff color={iconColor} size={14} /> : <Eye color={iconColor} size={14} />}
+            <Text className="text-sm">{showPassword ? 'Hide' : 'Show'}</Text>
+          </Pressable>
+        </View>
+        <Input
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry={!showPassword}
+          editable={!submitting}
+          returnKeyType="go"
+          onSubmitEditing={() => void handleSubmit()}
+          placeholder="••••••••"
+          accessibilityLabel="Password"
+        />
+      </View>
 
-          <View className="gap-2">
-            <Label>Password</Label>
-            <Input
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              placeholder="••••••••"
-            />
-          </View>
+      {error ? <Text className="text-destructive text-sm">{error}</Text> : null}
 
-          {error ? <Text className="text-destructive text-sm">{error}</Text> : null}
+      <Button disabled={!canSubmit} onPress={() => void handleSubmit()}>
+        <Text>{submitting ? 'Signing in...' : 'Sign in'}</Text>
+      </Button>
 
-          <Button
-            disabled={!canSubmit}
-            onPress={async () => {
-              setSubmitting(true);
-              setError(null);
-              try {
-                await login({ emailOrUsername: emailOrUsername.trim(), password });
-              } catch (e: any) {
-                setError(e?.message ?? 'Login failed');
-              } finally {
-                setSubmitting(false);
-              }
-            }}>
-            <Text>{submitting ? 'Signing in...' : 'Sign in'}</Text>
-          </Button>
+      <Button variant="link" disabled={submitting} onPress={() => router.push('/(auth)/forgot-password' as any)}>
+        <Text>Forgot password?</Text>
+      </Button>
 
-          <Button variant="link" onPress={() => router.push('/(auth)/register' as any)}>
-            <Text>New here? Create an account</Text>
-          </Button>
-        </CardContent>
-      </Card>
-    </View>
+      <Button variant="link" disabled={submitting} onPress={() => router.push('/(auth)/register' as any)}>
+        <Text>New here? Create an account</Text>
+      </Button>
+    </AuthScreenShell>
   );
 }
 
