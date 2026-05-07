@@ -1,8 +1,9 @@
 import React from 'react';
 import { Pressable, SectionList, StyleSheet, View } from 'react-native';
-import { BellRing, Bus, ChevronLeft, ChevronRight, MapPin, UserCheck } from 'lucide-react-native';
+import { BellRing, Bus, MapPin, UserCheck } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
 
 import { RestrictedTabContent } from '@/components/access/restricted-tab-content';
 import { ThemedText } from '@/components/themed-text';
@@ -30,6 +31,8 @@ export default function NotificationsTab() {
   const tint = useThemeColor({}, 'tint');
   const errorColor = useThemeColor({}, 'destructive');
   const iconColor = useThemeColor({}, 'icon');
+  const mutedText = useThemeColor({ light: '#64748b', dark: '#94a3b8' }, 'icon');
+  const heroBackground = useThemeColor({ light: '#eef4ff', dark: '#0f1d34' }, 'background');
   const highlightBackground = useThemeColor({ light: '#eaf2ff', dark: '#132238' }, 'background');
   const sections = React.useMemo(
     () => groupNotificationsByDate((notifications.data?.data ?? []) as NotificationItem[]),
@@ -47,15 +50,9 @@ export default function NotificationsTab() {
         onRetry={() => {
           void access.refetch();
         }}>
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <ChevronLeft color={iconColor} size={20} />
-          <ThemedText type="title">Notifications</ThemedText>
-        </View>
-        <View style={styles.headerRight}>
-          <ChevronLeft color={iconColor} size={16} />
-          <ChevronRight color={iconColor} size={16} />
-        </View>
+      <View style={[styles.headerCard, { borderColor, backgroundColor: heroBackground }]}>
+        <ThemedText type="title">Notifications</ThemedText>
+        <ThemedText style={{ color: mutedText }}>Route updates, attendance events, and billing alerts.</ThemedText>
       </View>
 
       {notifications.isLoading ? <ThemedText>Loading…</ThemedText> : null}
@@ -80,7 +77,7 @@ export default function NotificationsTab() {
         renderItem={({ item }) => {
           const isRead = Boolean(item.read);
           const isHighlighted = String(item.id) === String(latestId);
-          const status = resolveStatus(item);
+          const status = resolveStatus(item, iconColor);
           const action = resolveNotificationAction(item);
 
           return (
@@ -104,9 +101,19 @@ export default function NotificationsTab() {
                   </Badge>
                 </View>
                 {item.body ? <ThemedText>{item.body}</ThemedText> : null}
-                <ThemedText style={styles.timestamp}>
-                  {formatTimestamp(item.createdAt)} {status.route ? `| Route ${status.route}` : ''}
-                </ThemedText>
+                <View style={styles.metaRow}>
+                  <ThemedText style={styles.timestamp}>{formatTimestamp(item.createdAt)}</ThemedText>
+                  {status.route ? (
+                    <View style={styles.routeTag}>
+                      <Image
+                        source={require('@/assets/images/icons/route-badge.svg')}
+                        style={styles.routeIcon}
+                        contentFit="contain"
+                      />
+                      <ThemedText style={styles.routeText}>Route {status.route}</ThemedText>
+                    </View>
+                  ) : null}
+                </View>
                 {!isRead ? (
                   <Pressable
                     accessibilityRole="button"
@@ -141,7 +148,19 @@ export default function NotificationsTab() {
           );
         }}
         ListEmptyComponent={
-          notifications.isLoading ? null : <ThemedText>No notifications yet.</ThemedText>
+          notifications.isLoading ? null : (
+            <Card style={[styles.emptyCard, { borderColor, backgroundColor: cardBackground }]}>
+              <CardContent style={styles.emptyBody}>
+                <Image
+                  source={require('@/assets/images/illustrations/empty-notifications.svg')}
+                  style={styles.emptyImage}
+                  contentFit="contain"
+                />
+                <ThemedText type="defaultSemiBold">No notifications yet</ThemedText>
+                <ThemedText style={styles.emptyText}>Updates about bus routes, attendance, and billing will appear here.</ThemedText>
+              </CardContent>
+            </Card>
+          )
         }
       />
       </RestrictedTabContent>
@@ -151,9 +170,13 @@ export default function NotificationsTab() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, gap: 12 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  headerCard: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 2,
+  },
   listContent: { paddingVertical: 8, paddingBottom: 24, gap: 8 },
   sectionHeader: { marginTop: 4, marginBottom: 4 },
   card: {
@@ -182,6 +205,10 @@ const styles = StyleSheet.create({
   timestamp: {
     opacity: 0.75,
   },
+  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  routeTag: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  routeIcon: { width: 16, height: 16 },
+  routeText: { opacity: 0.85, fontSize: 12 },
   button: {
     paddingVertical: 10,
     borderRadius: 12,
@@ -193,6 +220,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 9,
   },
+  emptyCard: { borderWidth: 1, borderRadius: 14, marginTop: 4 },
+  emptyBody: { alignItems: 'center', gap: 8, paddingVertical: 16 },
+  emptyImage: { width: 180, height: 110 },
+  emptyText: { opacity: 0.78, textAlign: 'center' },
   errorText: { fontSize: 14 },
 });
 
@@ -245,24 +276,24 @@ function resolveTitle(item: NotificationItem) {
   return String(item.title ?? item.type ?? 'Notification');
 }
 
-function resolveStatus(item: NotificationItem) {
+function resolveStatus(item: NotificationItem, iconColor: string) {
   const text = `${String(item.title ?? '')} ${String(item.body ?? '')} ${String(item.type ?? '')}`.toLowerCase();
   const routeMatch = text.match(/route[\s:-]*([a-z0-9-]+)/i);
   const route = routeMatch?.[1]?.toUpperCase();
 
   if (text.includes('started')) {
-    return { icon: <Bus size={16} color="#2b2b2b" />, route };
+    return { icon: <Bus size={16} color={iconColor} />, route };
   }
   if (text.includes('approach')) {
-    return { icon: <MapPin size={16} color="#2b2b2b" />, route };
+    return { icon: <MapPin size={16} color={iconColor} />, route };
   }
   if (text.includes('board')) {
-    return { icon: <UserCheck size={16} color="#2b2b2b" />, route };
+    return { icon: <UserCheck size={16} color={iconColor} />, route };
   }
   if (text.includes('reach') || text.includes('arriv')) {
-    return { icon: <BellRing size={16} color="#2b2b2b" />, route };
+    return { icon: <BellRing size={16} color={iconColor} />, route };
   }
-  return { icon: <BellRing size={16} color="#2b2b2b" />, route };
+  return { icon: <BellRing size={16} color={iconColor} />, route };
 }
 
 function resolveNotificationAction(item: NotificationItem):

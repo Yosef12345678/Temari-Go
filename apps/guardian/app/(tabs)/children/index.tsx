@@ -1,12 +1,12 @@
 import React from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronRight } from 'lucide-react-native';
+import { ChevronRight, GraduationCap, IdCard, MoveRight, School } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { AppBrand } from '@/components/app-brand';
 import { RestrictedTabContent } from '@/components/access/restricted-tab-content';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +24,10 @@ export default function ChildrenTab() {
   const borderColor = useThemeColor({}, 'border');
   const cardBackground = useThemeColor({}, 'background');
   const errorColor = useThemeColor({}, 'destructive');
+  const iconColor = useThemeColor({}, 'icon');
+  const tint = useThemeColor({}, 'tint');
+  const muted = useThemeColor({}, 'icon');
+  const heroBackground = useThemeColor({ light: '#eef4ff', dark: '#0f1d34' }, 'background');
 
   return (
     <ThemedView style={[styles.container, { paddingTop: insets.top + 12 }]}>
@@ -35,7 +39,38 @@ export default function ChildrenTab() {
         onRetry={() => {
           void access.refetch();
         }}>
-      <AppBrand subtitle="Your children" />
+      <View style={[styles.heroCard, { borderColor, backgroundColor: heroBackground }]}>
+        <View style={styles.heroTopRow}>
+          <View style={styles.heroBrandRow}>
+            <Image source={require('@/assets/images/transport.svg')} style={styles.heroLogo} contentFit="contain" />
+            <View>
+              <ThemedText type="defaultSemiBold">Temari Guardian</ThemedText>
+              <ThemedText style={{ color: muted }}>Premium parent experience</ThemedText>
+            </View>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            style={[styles.heroCta, { backgroundColor: tint }]}
+            onPress={() => {
+              const first = students.data?.[0];
+              if (first?.id) {
+                router.push(`/children/${first.id}/tracking` as any);
+              }
+            }}>
+            <ThemedText type="defaultSemiBold">Track</ThemedText>
+            <MoveRight color="#0f172a" size={16} />
+          </Pressable>
+        </View>
+        <View style={styles.heroMessageWrap}>
+          <Image source={require('@/assets/images/illustrations/support-hero.svg')} style={styles.heroIllustration} contentFit="contain" />
+          <View style={styles.heroTextWrap}>
+            <ThemedText type="subtitle">Student tracking made simple</ThemedText>
+            <ThemedText style={{ color: muted }}>
+              Monitor routes, check attendance updates, and open child details from a single place.
+            </ThemedText>
+          </View>
+        </View>
+      </View>
 
       {students.isLoading ? <ThemedText>Loading…</ThemedText> : null}
       {students.error ? (
@@ -60,20 +95,35 @@ export default function ChildrenTab() {
               <CardContent style={styles.cardBody}>
                 <View style={styles.leftSection}>
                   <Avatar className="size-12" alt={`${item.full_name ?? 'Student'} avatar`}>
-                    <AvatarImage source={{ uri: String(item.avatarUrl ?? '') }} />
+                    <AvatarImage
+                      source={
+                        String(item.avatarUrl ?? '').trim()
+                          ? { uri: String(item.avatarUrl ?? '') }
+                          : require('@/assets/images/placeholders/student-default.svg')
+                      }
+                    />
                     <AvatarFallback>
                       <ThemedText type="defaultSemiBold">{getInitials(item)}</ThemedText>
                     </AvatarFallback>
                   </Avatar>
                   <View style={styles.nameSection}>
                     <ThemedText type="defaultSemiBold">{item.full_name ?? 'Student'}</ThemedText>
-                    <ThemedText style={styles.subtitle}>International School</ThemedText>
+                    <View style={styles.metaRow}>
+                      <School color={iconColor} size={14} />
+                      <ThemedText style={styles.subtitle}>International School</ThemedText>
+                    </View>
                     <View style={styles.badges}>
                       <Badge variant="secondary">
-                        <ThemedText>Grade {String(item.grade ?? '-')}</ThemedText>
+                        <View style={styles.badgeInner}>
+                          <GraduationCap color={iconColor} size={13} />
+                          <ThemedText>Grade {String(item.grade ?? '-')}</ThemedText>
+                        </View>
                       </Badge>
                       <Badge variant="outline">
-                        <ThemedText>ID {String(item.id)}</ThemedText>
+                        <View style={styles.badgeInner}>
+                          <IdCard color={iconColor} size={13} />
+                          <ThemedText>ID {String(item.id)}</ThemedText>
+                        </View>
                       </Badge>
                     </View>
                   </View>
@@ -94,6 +144,49 @@ export default function ChildrenTab() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, gap: 12 },
+  heroCard: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 12,
+    gap: 10,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  heroBrandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  heroLogo: {
+    width: 42,
+    height: 42,
+  },
+  heroCta: {
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  heroMessageWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  heroIllustration: {
+    width: 92,
+    height: 64,
+  },
+  heroTextWrap: {
+    gap: 2,
+    flex: 1,
+  },
   pressable: { marginBottom: 10 },
   card: {
     borderWidth: 1,
@@ -121,11 +214,17 @@ const styles = StyleSheet.create({
   subtitle: {
     opacity: 0.7,
   },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   badges: {
     flexDirection: 'row',
     gap: 8,
     marginTop: 2,
   },
+  badgeInner: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   errorText: { fontSize: 14 },
 });
 

@@ -1,8 +1,8 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
+import { BellRing, BusFront, UserRound, WalletCards } from 'lucide-react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useResolvedColorScheme } from '@/hooks/use-color-scheme';
 
@@ -20,28 +20,28 @@ export default function TabLayout() {
         name="children/index"
         options={{
           title: 'Children',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          tabBarIcon: ({ color }) => <BusFront size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="notifications/index"
         options={{
           title: 'Notifications',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          tabBarIcon: ({ color }) => <BellRing size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="billing/index"
         options={{
           title: 'Billing',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="creditcard.fill" color={color} />,
+          tabBarIcon: ({ color }) => <WalletCards size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile/index"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
+          tabBarIcon: ({ color }) => <UserRound size={22} color={color} />,
         }}
       />
     </Tabs>

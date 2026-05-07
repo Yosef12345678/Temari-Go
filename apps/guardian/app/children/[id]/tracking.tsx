@@ -1,15 +1,16 @@
 import React, { useMemo, useRef } from 'react';
-import { useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
+import { Clock3, LocateFixed, Route } from 'lucide-react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Card, CardContent } from '@/components/ui/card';
-import { useBusHistory } from '@/src/hooks/useLocations';
-import { useStudentDetail } from '@/src/hooks/useStudents';
-import { useBusCurrent } from '@/src/hooks/useLocations';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useBusCurrent, useBusHistory } from '@/src/hooks/useLocations';
+import { useStudentDetail } from '@/src/hooks/useStudents';
 
 export default function ChildTrackingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -17,7 +18,9 @@ export default function ChildTrackingScreen() {
   const borderColor = useThemeColor({}, 'border');
   const cardBackground = useThemeColor({}, 'background');
   const tint = useThemeColor({}, 'tint');
+  const iconColor = useThemeColor({}, 'icon');
   const errorColor = useThemeColor({}, 'destructive');
+  const mutedText = useThemeColor({ light: '#64748b', dark: '#94a3b8' }, 'icon');
   const mapRef = useRef<MapView | null>(null);
 
   const busId = useMemo(() => {
@@ -57,6 +60,7 @@ export default function ChildTrackingScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <Stack.Screen options={{ title: 'Live Tracking' }} />
       <ScrollView
         contentContainerStyle={styles.scrollBody}
         refreshControl={
@@ -71,25 +75,30 @@ export default function ChildTrackingScreen() {
             }}
           />
         }>
-        <ThemedText type="title">Bus tracking</ThemedText>
-
         {!busId ? <ThemedText>No bus assigned for this student.</ThemedText> : null}
         {busId ? (
           <Card style={[styles.card, { borderColor, backgroundColor: cardBackground }]}>
+            <CardHeader style={styles.headerRow}>
+              <CardTitle>Live Route</CardTitle>
+              <Badge variant="secondary">
+                <ThemedText>Bus {busId}</ThemedText>
+              </Badge>
+            </CardHeader>
             <CardContent style={styles.cardContent}>
-              <View style={styles.row}>
-                <ThemedText type="defaultSemiBold">Bus: {busId}</ThemedText>
-                <Pressable
-                  accessibilityRole="button"
-                  style={[styles.recenterBtn, { borderColor }]}
-                  onPress={() => {
-                    mapRef.current?.animateToRegion(mapRegion, 400);
-                  }}>
-                  <ThemedText>Recenter</ThemedText>
-                </Pressable>
+              <View style={styles.metaRow}>
+                <View style={styles.metaItem}>
+                  <Clock3 color={iconColor} size={14} />
+                  <ThemedText style={{ color: mutedText }}>
+                    {current.data ? `Updated ${formatTimestamp(String(current.data.timestamp ?? ''))}` : 'Waiting for live location'}
+                  </ThemedText>
+                </View>
+                <View style={styles.metaItem}>
+                  <Route color={iconColor} size={14} />
+                  <ThemedText style={{ color: mutedText }}>{routePoints.length} points</ThemedText>
+                </View>
               </View>
 
-              <View style={styles.mapContainer}>
+              <View style={[styles.mapContainer, { borderColor }]}>
                 <MapView ref={mapRef} style={styles.map} initialRegion={mapRegion}>
                   {routePoints.length > 1 ? <Polyline coordinates={routePoints} strokeColor={tint} strokeWidth={3} /> : null}
                   {homeCoords ? <Marker coordinate={homeCoords} title="Home" pinColor="#22c55e" /> : null}
@@ -104,18 +113,17 @@ export default function ChildTrackingScreen() {
                 </MapView>
               </View>
 
-              {current.isLoading || history.isLoading ? <ThemedText>Loading live map…</ThemedText> : null}
-              {!current.data && !current.isLoading ? <ThemedText>Live location is not available yet.</ThemedText> : null}
-              {current.data ? (
-                <ThemedText>Last updated: {formatTimestamp(String(current.data.timestamp ?? ''))}</ThemedText>
-              ) : null}
-              {current.data?.speed != null ? <ThemedText>Speed: {String(current.data.speed)} km/h</ThemedText> : null}
+              <Pressable
+                accessibilityRole="button"
+                style={[styles.recenterBtn, { borderColor }]}
+                onPress={() => mapRef.current?.animateToRegion(mapRegion, 400)}>
+                <LocateFixed color={iconColor} size={16} />
+                <ThemedText type="defaultSemiBold">Recenter</ThemedText>
+              </Pressable>
 
-            {current.error ? (
-              <ThemedText style={[styles.errorText, { color: errorColor }]}>
-                {(current.error as any)?.message ?? 'Failed'}
-              </ThemedText>
-            ) : null}
+              {current.error ? (
+                <ThemedText style={[styles.errorText, { color: errorColor }]}>{(current.error as any)?.message ?? 'Failed'}</ThemedText>
+              ) : null}
             </CardContent>
           </Card>
         ) : null}
@@ -127,42 +135,29 @@ export default function ChildTrackingScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, gap: 12 },
   scrollBody: { gap: 12, paddingBottom: 24 },
-  card: {
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingVertical: 0,
-  },
-  cardContent: {
-    padding: 14,
-    gap: 10,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
+  card: { borderWidth: 1, borderRadius: 14, paddingVertical: 0 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardContent: { padding: 14, gap: 10 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   recenterBtn: {
     borderWidth: 1,
     borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
-  mapContainer: {
-    overflow: 'hidden',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#dbeafe',
-  },
-  map: {
-    width: '100%',
-    height: 280,
-  },
+  mapContainer: { overflow: 'hidden', borderRadius: 12, borderWidth: 1 },
+  map: { width: '100%', height: 280 },
   errorText: { fontSize: 14 },
 });
 
 function formatTimestamp(value: string) {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Unknown';
+  if (Number.isNaN(date.getTime())) return 'Unknown time';
   return date.toLocaleString([], {
     day: '2-digit',
     month: 'short',
@@ -170,4 +165,3 @@ function formatTimestamp(value: string) {
     minute: '2-digit',
   });
 }
-

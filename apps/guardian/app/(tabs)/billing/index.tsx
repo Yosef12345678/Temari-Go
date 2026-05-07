@@ -1,8 +1,9 @@
 import React from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowRight, Clock3, CreditCard, ReceiptText } from 'lucide-react-native';
+import { ArrowRight, CheckCircle2, Clock3, CreditCard, ReceiptText, XCircle } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
 
 import { RestrictedTabContent } from '@/components/access/restricted-tab-content';
 import { ThemedText } from '@/components/themed-text';
@@ -27,6 +28,11 @@ export default function BillingTab() {
   const tint = useThemeColor({}, 'tint');
   const errorColor = useThemeColor({}, 'destructive');
   const iconColor = useThemeColor({}, 'icon');
+  const successColor = useThemeColor({ light: '#16a34a', dark: '#4ade80' }, 'tint');
+  const warningColor = useThemeColor({ light: '#ca8a04', dark: '#facc15' }, 'tint');
+  const failColor = useThemeColor({ light: '#dc2626', dark: '#f87171' }, 'tint');
+  const mutedText = useThemeColor({ light: '#64748b', dark: '#94a3b8' }, 'icon');
+  const heroBackground = useThemeColor({ light: '#eef4ff', dark: '#0f1d34' }, 'background');
   const isRefreshing = invoices.isRefetching || payments.isRefetching;
 
   return (
@@ -39,8 +45,11 @@ export default function BillingTab() {
         onRetry={() => {
           void access.refetch();
         }}>
-      <View style={styles.headerRow}>
-        <ThemedText type="title">Billing</ThemedText>
+      <View style={[styles.headerCard, { borderColor, backgroundColor: heroBackground }]}>
+        <View style={styles.headerText}>
+          <ThemedText type="title">Billing</ThemedText>
+          <ThemedText style={{ color: mutedText }}>Invoices, payment history, and quick checkout.</ThemedText>
+        </View>
         <Pressable
           accessibilityRole="button"
           style={[styles.button, { backgroundColor: tint }]}
@@ -99,7 +108,12 @@ export default function BillingTab() {
             <Card key={String(item.id)} style={[styles.card, { borderColor, backgroundColor: cardBackground }]}>
               <CardHeader style={styles.cardHeader}>
                 <CardTitle>Invoice #{String(item.id)}</CardTitle>
-                <StatusBadge status={String(item.status ?? '')} />
+                <StatusBadge
+                  status={String(item.status ?? '')}
+                  successColor={successColor}
+                  warningColor={warningColor}
+                  failColor={failColor}
+                />
               </CardHeader>
               <CardContent style={styles.cardBody}>
                 <View style={styles.row}>
@@ -116,7 +130,15 @@ export default function BillingTab() {
               </CardContent>
             </Card>
           ))}
-          {!invoices.isLoading && (invoices.data?.data?.length ?? 0) === 0 ? <ThemedText>No invoices.</ThemedText> : null}
+          {!invoices.isLoading && (invoices.data?.data?.length ?? 0) === 0 ? (
+            <EmptyStateCard
+              title="No invoices yet"
+              subtitle="Invoices will appear here once the school posts them."
+              image={require('@/assets/images/illustrations/empty-billing.svg')}
+              borderColor={borderColor}
+              backgroundColor={cardBackground}
+            />
+          ) : null}
         </View>
 
         <View style={styles.section}>
@@ -132,7 +154,12 @@ export default function BillingTab() {
             <Card key={String(item.id)} style={[styles.card, { borderColor, backgroundColor: cardBackground }]}>
               <CardHeader style={styles.cardHeader}>
                 <CardTitle>Payment #{String(item.id)}</CardTitle>
-                <StatusBadge status={String(item.status ?? '')} />
+                <StatusBadge
+                  status={String(item.status ?? '')}
+                  successColor={successColor}
+                  warningColor={warningColor}
+                  failColor={failColor}
+                />
               </CardHeader>
               <CardContent style={styles.cardBody}>
                 <View style={styles.row}>
@@ -154,7 +181,15 @@ export default function BillingTab() {
               </CardContent>
             </Card>
           ))}
-          {!payments.isLoading && (payments.data?.data?.length ?? 0) === 0 ? <ThemedText>No payments.</ThemedText> : null}
+          {!payments.isLoading && (payments.data?.data?.length ?? 0) === 0 ? (
+            <EmptyStateCard
+              title="No payment history"
+              subtitle="Completed and pending payments will be listed here."
+              image={require('@/assets/images/illustrations/empty-billing.svg')}
+              borderColor={borderColor}
+              backgroundColor={cardBackground}
+            />
+          ) : null}
         </View>
       </ScrollView>
       </RestrictedTabContent>
@@ -164,7 +199,17 @@ export default function BillingTab() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, gap: 12 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerCard: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  headerText: { flex: 1, gap: 2 },
   scrollBody: { gap: 14, paddingBottom: 24 },
   summaryCard: { borderWidth: 1 },
   feedbackCard: { borderWidth: 1 },
@@ -195,16 +240,56 @@ const styles = StyleSheet.create({
   },
   buttonInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   metaInline: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  badgeInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  emptyCard: { borderWidth: 1, borderRadius: 14 },
+  emptyBody: { alignItems: 'center', gap: 8, paddingVertical: 16 },
+  emptyImage: { width: 180, height: 110 },
+  emptyText: { opacity: 0.78, textAlign: 'center' },
   errorText: { fontSize: 14 },
 });
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, successColor, warningColor, failColor }: { status: string; successColor: string; warningColor: string; failColor: string }) {
   const normalized = status.trim().toLowerCase();
   const variant = normalized === 'completed' || normalized === 'paid' ? 'default' : normalized === 'pending' ? 'secondary' : 'outline';
+  const icon =
+    normalized === 'completed' || normalized === 'paid' ? (
+      <CheckCircle2 size={14} color={successColor} />
+    ) : normalized === 'pending' ? (
+      <Clock3 size={14} color={warningColor} />
+    ) : (
+      <XCircle size={14} color={failColor} />
+    );
   return (
     <Badge variant={variant as any}>
-      <ThemedText>{status || 'Unknown'}</ThemedText>
+      <View style={styles.badgeInner}>
+        {icon}
+        <ThemedText>{status || 'Unknown'}</ThemedText>
+      </View>
     </Badge>
+  );
+}
+
+function EmptyStateCard({
+  title,
+  subtitle,
+  image,
+  borderColor,
+  backgroundColor,
+}: {
+  title: string;
+  subtitle: string;
+  image: number;
+  borderColor: string;
+  backgroundColor: string;
+}) {
+  return (
+    <Card style={[styles.emptyCard, { borderColor, backgroundColor }]}>
+      <CardContent style={styles.emptyBody}>
+        <Image source={image} style={styles.emptyImage} contentFit="contain" />
+        <ThemedText type="defaultSemiBold">{title}</ThemedText>
+        <ThemedText style={styles.emptyText}>{subtitle}</ThemedText>
+      </CardContent>
+    </Card>
   );
 }
 

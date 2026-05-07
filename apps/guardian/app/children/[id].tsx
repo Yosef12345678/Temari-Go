@@ -1,17 +1,18 @@
 import React from 'react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, FlatList, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Alert, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import {
   BusFront,
-  Bell,
   CalendarMinus2,
-  ChevronLeft,
   ChevronRight,
-  Clock3,
   CircleHelp,
+  Clock3,
+  GraduationCap,
+  IdCard,
   MapPin,
   Phone,
-  UserCircle2,
+  Route,
+  School,
 } from 'lucide-react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -21,11 +22,10 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useBusCurrent, useBusHistory } from '@/src/hooks/useLocations';
-import { useAttendanceByStudent } from '@/src/hooks/useAttendance';
-import { useStudentDetail } from '@/src/hooks/useStudents';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import type { AttendanceEvent } from '@/src/types/attendance';
+import { useAttendanceByStudent } from '@/src/hooks/useAttendance';
+import { useBusCurrent, useBusHistory } from '@/src/hooks/useLocations';
+import { useStudentDetail } from '@/src/hooks/useStudents';
 import type { BusLocationPoint } from '@/src/types/location';
 
 export default function ChildDetailScreen() {
@@ -36,70 +36,56 @@ export default function ChildDetailScreen() {
   const busId = String(student.busId ?? student.bus_id ?? '');
   const current = useBusCurrent(busId, { refetchIntervalMs: 8_000 });
   const history = useBusHistory(busId, { limit: 6 });
-  const [weekOffset, setWeekOffset] = React.useState(0);
-  const [showAllKidsTrip, setShowAllKidsTrip] = React.useState(false);
+  const attendance = useAttendanceByStudent(String(id ?? ''));
+  const [tabValue, setTabValue] = React.useState('overview');
+
   const iconColor = useThemeColor({}, 'icon');
   const borderColor = useThemeColor({}, 'border');
   const tint = useThemeColor({}, 'tint');
   const errorColor = useThemeColor({}, 'destructive');
-  const emphasisBorder = useThemeColor({ light: '#93c5fd', dark: '#1d4ed8' }, 'border');
-  const emphasisBackground = useThemeColor({ light: '#eaf2ff', dark: '#132238' }, 'background');
-  const emphasisSoftBackground = useThemeColor({ light: '#f4f8ff', dark: '#0e1a2f' }, 'background');
+  const cardBackground = useThemeColor({}, 'background');
+  const mutedText = useThemeColor({ light: '#64748b', dark: '#94a3b8' }, 'icon');
+  const emphasisBorder = useThemeColor({ light: '#bfdbfe', dark: '#1d4ed8' }, 'border');
+  const emphasisBackground = useThemeColor({ light: '#eff6ff', dark: '#0f1d34' }, 'background');
 
   const studentName = String(student.full_name ?? 'Student');
   const schoolName = String(student.school_name ?? student.schoolName ?? 'School not available');
   const studentGrade = String(student.grade ?? '-');
   const studentCode = String(student.student_id ?? student.studentId ?? student.id ?? id ?? '-');
-
-  const infoCards = [
-    { key: 'student-id', title: 'Student ID', value: studentCode },
-    { key: 'grade', title: 'Grade', value: studentGrade },
-    { key: 'roll-number', title: 'Roll Number', value: String(student.roll_number ?? '—') },
-    { key: 'section', title: 'Section', value: String(student.section ?? '—') },
-  ];
-  const [tabValue, setTabValue] = React.useState('overview');
-  const [activeCard, setActiveCard] = React.useState(0);
-  const weekRange = React.useMemo(() => getWeekRange(weekOffset), [weekOffset]);
-  const attendance = useAttendanceByStudent(String(id ?? ''), {
-    startDate: weekRange.start.toISOString(),
-    endDate: weekRange.end.toISOString(),
-  });
+  const routeName = String(student.route_name ?? 'Not assigned');
 
   const homeLat = student.home_latitude;
   const homeLng = student.home_longitude;
-  const addressLabel =
-    typeof homeLat === 'number' && typeof homeLng === 'number'
-      ? `Home (${homeLat.toFixed(4)}, ${homeLng.toFixed(4)})`
-      : 'Default address not provided';
+  const hasHomeAddress = typeof homeLat === 'number' && typeof homeLng === 'number';
+  const addressLabel = hasHomeAddress
+    ? `Home (${Number(homeLat).toFixed(4)}, ${Number(homeLng).toFixed(4)})`
+    : 'Default address not provided';
 
   const timeline = React.useMemo(() => {
     const historyPoints = (history.data ?? []) as BusLocationPoint[];
     const currentPoint = current.data
-      ? [
-          {
-            latitude: current.data.latitude,
-            longitude: current.data.longitude,
-            timestamp: String(current.data.timestamp ?? ''),
-            speed: current.data.speed,
-          } satisfies BusLocationPoint,
-        ]
+      ? [{ latitude: current.data.latitude, longitude: current.data.longitude, timestamp: String(current.data.timestamp ?? '') }]
       : [];
-    const points = [...historyPoints, ...currentPoint];
-    return points
+    return [...historyPoints, ...currentPoint]
       .filter((point) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude))
       .sort((a, b) => String(a.timestamp ?? '').localeCompare(String(b.timestamp ?? '')));
   }, [current.data, history.data]);
-  const attendanceRows = React.useMemo(
-    () => buildAttendanceRows((attendance.data ?? []) as AttendanceEvent[], weekRange.start),
-    [attendance.data, weekRange.start]
-  );
+
   const etaTimeLabel = React.useMemo(() => {
-    if (!current.data?.timestamp) return null;
+    if (!current.data?.timestamp) return 'Unavailable';
     const ts = new Date(String(current.data.timestamp));
-    if (Number.isNaN(ts.getTime())) return null;
-    const etaDate = new Date(ts.getTime() + 5 * 60 * 1000);
-    return etaDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    if (Number.isNaN(ts.getTime())) return 'Unavailable';
+    return new Date(ts.getTime() + 5 * 60 * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   }, [current.data?.timestamp]);
+
+  const attendanceSummary = React.useMemo(() => {
+    const events = (attendance.data ?? []) as Array<Record<string, unknown>>;
+    const latest = events
+      .map((item) => ({ type: String(item.type ?? '-'), ts: String(item.timestamp ?? item.createdAt ?? '') }))
+      .sort((a, b) => b.ts.localeCompare(a.ts))[0];
+    return latest ? `${latest.type} at ${formatTimestamp(latest.ts)}` : 'No attendance events yet';
+  }, [attendance.data]);
+
   const isRefreshing = q.isRefetching || current.isRefetching || history.isRefetching || attendance.isRefetching;
   const handleRefresh = React.useCallback(() => {
     void q.refetch();
@@ -112,14 +98,14 @@ export default function ChildDetailScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="title">Student</ThemedText>
+      <Stack.Screen
+        options={{
+          title: studentName && studentName !== 'Student' ? studentName : 'Student Details',
+        }}
+      />
 
       {q.isLoading ? <ThemedText>Loading…</ThemedText> : null}
-      {q.error ? (
-        <ThemedText style={[styles.errorText, { color: errorColor }]}>
-          {(q.error as any)?.message ?? 'Failed'}
-        </ThemedText>
-      ) : null}
+      {q.error ? <ThemedText style={[styles.errorText, { color: errorColor }]}>{(q.error as any)?.message ?? 'Failed'}</ThemedText> : null}
 
       {q.data ? (
         <Tabs value={tabValue} onValueChange={setTabValue} style={styles.tabsRoot}>
@@ -127,14 +113,8 @@ export default function ChildDetailScreen() {
             <TabsTrigger value="overview">
               <ThemedText>Overview</ThemedText>
             </TabsTrigger>
-            <TabsTrigger value="travel">
-              <ThemedText>Travel Tools</ThemedText>
-            </TabsTrigger>
             <TabsTrigger value="timeline">
               <ThemedText>Route Timeline</ThemedText>
-            </TabsTrigger>
-            <TabsTrigger value="attendance">
-              <ThemedText>Attendance</ThemedText>
             </TabsTrigger>
           </TabsList>
 
@@ -143,18 +123,18 @@ export default function ChildDetailScreen() {
               contentContainerStyle={styles.scrollBody}
               showsVerticalScrollIndicator={false}
               refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Student Identification</CardTitle>
-                </CardHeader>
-                <CardContent style={styles.identityBody}>
-                  <View>
+              <Card style={[styles.heroCard, { borderColor: emphasisBorder, backgroundColor: emphasisBackground }]}>
+                <CardContent style={styles.heroBody}>
+                  <View style={styles.heroText}>
+                    <Badge variant="outline">
+                      <ThemedText>Student Profile</ThemedText>
+                    </Badge>
                     <ThemedText type="defaultSemiBold" style={styles.studentName}>
                       {studentName}
                     </ThemedText>
-                    <ThemedText style={styles.subtitle}>{schoolName}</ThemedText>
+                    <ThemedText style={[styles.subtitle, { color: mutedText }]}>{schoolName}</ThemedText>
                   </View>
-                  <Avatar className="size-14" alt={`${studentName} avatar`}>
+                  <Avatar className="size-16" alt={`${studentName} avatar`}>
                     <AvatarImage source={{ uri: String(student.avatar_url ?? student.avatarUrl ?? '') }} />
                     <AvatarFallback>
                       <ThemedText type="defaultSemiBold">{getInitials(studentName)}</ThemedText>
@@ -163,45 +143,76 @@ export default function ChildDetailScreen() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <View style={styles.kpiGrid}>
+                <KpiCard icon={<BusFront color={iconColor} size={16} />} label="Bus" value={busId || 'Unassigned'} borderColor={borderColor} />
+                <KpiCard icon={<Clock3 color={iconColor} size={16} />} label="ETA" value={etaTimeLabel} borderColor={borderColor} />
+                <KpiCard icon={<Route color={iconColor} size={16} />} label="Route" value={routeName} borderColor={borderColor} />
+                <KpiCard
+                  icon={<CalendarMinus2 color={iconColor} size={16} />}
+                  label="Attendance"
+                  value={attendanceSummary.slice(0, 24)}
+                  borderColor={borderColor}
+                />
+              </View>
+
+              <Card style={{ borderColor, backgroundColor: cardBackground }}>
                 <CardHeader>
-                  <CardTitle>Student Information</CardTitle>
+                  <CardTitle>Quick Actions</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <FlatList
-                    data={infoCards}
-                    horizontal
-                    pagingEnabled
-                    onMomentumScrollEnd={(event) => {
-                      const width = event.nativeEvent.layoutMeasurement.width;
-                      const offset = event.nativeEvent.contentOffset.x;
-                      setActiveCard(Math.round(offset / Math.max(width, 1)));
-                    }}
-                    showsHorizontalScrollIndicator={false}
-                    keyExtractor={(item) => item.key}
-                    renderItem={({ item }) => (
-                      <View style={[styles.infoCard, { borderColor }]}>
-                        <ThemedText style={styles.infoTitle}>{item.title}</ThemedText>
-                        <ThemedText type="defaultSemiBold" style={styles.infoValue}>
-                          {item.value}
-                        </ThemedText>
-                      </View>
-                    )}
+                <CardContent style={styles.quickActions}>
+                  <ActionRow
+                    icon={<MapPin color={iconColor} size={18} />}
+                    title="View Live Map"
+                    onPress={() => router.push(`/children/${id}/tracking` as any)}
+                    borderColor={borderColor}
                   />
-                  <View style={styles.paginationDots}>
-                    {infoCards.map((item, idx) => (
-                      <View
-                        key={item.key}
-                        style={[styles.dot, idx === activeCard ? [styles.dotActive, { backgroundColor: tint }] : undefined]}
-                      />
-                    ))}
-                  </View>
+                  <ActionRow
+                    icon={<CalendarMinus2 color={iconColor} size={18} />}
+                    title="Mark Absence"
+                    onPress={() => router.push(`/children/${id}/attendance` as any)}
+                    borderColor={borderColor}
+                  />
+                  <ActionRow
+                    icon={<Phone color={iconColor} size={18} />}
+                    title="Call Driver"
+                    onPress={async () => {
+                      if (!busId) {
+                        Alert.alert('Driver unavailable', 'No bus is currently assigned to this student.');
+                        return;
+                      }
+                      await Linking.openURL('tel:+10000000000');
+                    }}
+                    borderColor={borderColor}
+                  />
+                  <ActionRow
+                    icon={<CircleHelp color={iconColor} size={18} />}
+                    title="Help Desk"
+                    onPress={() => router.push('/modals/helpdesk' as any)}
+                    borderColor={borderColor}
+                  />
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card style={{ borderColor, backgroundColor: cardBackground }}>
                 <CardHeader>
-                  <CardTitle>Location & Logistics</CardTitle>
+                  <CardTitle>Student Information</CardTitle>
+                </CardHeader>
+                <CardContent style={styles.detailsGrid}>
+                  <InfoTile icon={<IdCard color={iconColor} size={14} />} label="Student ID" value={studentCode} borderColor={borderColor} />
+                  <InfoTile icon={<GraduationCap color={iconColor} size={14} />} label="Grade" value={studentGrade} borderColor={borderColor} />
+                  <InfoTile
+                    icon={<School color={iconColor} size={14} />}
+                    label="Roll Number"
+                    value={String(student.roll_number ?? '—')}
+                    borderColor={borderColor}
+                  />
+                  <InfoTile icon={<Route color={iconColor} size={14} />} label="Section" value={String(student.section ?? '—')} borderColor={borderColor} />
+                </CardContent>
+              </Card>
+
+              <Card style={{ borderColor, backgroundColor: cardBackground }}>
+                <CardHeader>
+                  <CardTitle>Location Snapshot</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Pressable
@@ -209,7 +220,7 @@ export default function ChildDetailScreen() {
                     accessibilityLabel="Open default address"
                     style={[styles.addressRow, { borderColor }]}
                     onPress={async () => {
-                      if (typeof homeLat === 'number' && typeof homeLng === 'number') {
+                      if (hasHomeAddress) {
                         await Linking.openURL(`https://maps.google.com/?q=${homeLat},${homeLng}`);
                         return;
                       }
@@ -228,53 +239,12 @@ export default function ChildDetailScreen() {
             </ScrollView>
           </TabsContent>
 
-          <TabsContent value="travel" style={styles.tabContent}>
-            <ScrollView
-              contentContainerStyle={styles.scrollBody}
-              showsVerticalScrollIndicator={false}
-              refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}>
-              <Card style={[styles.travelCard, { borderColor: emphasisBorder, backgroundColor: emphasisBackground }]}>
-                <CardHeader>
-                  <CardTitle>Travel Utility Menu</CardTitle>
-                </CardHeader>
-                <CardContent style={styles.travelMenu}>
-                  <TravelActionRow
-                    icon={<MapPin color="#2b2b2b" size={18} />}
-                    title="View Live Map"
-                    onPress={() => router.push(`/children/${id}/tracking` as any)}
-                  />
-                  <TravelActionRow
-                    icon={<CalendarMinus2 color="#2b2b2b" size={18} />}
-                    title="Mark Absence"
-                    onPress={() => router.push(`/children/${id}/attendance` as any)}
-                  />
-                  <TravelActionRow
-                    icon={<Phone color="#2b2b2b" size={18} />}
-                    title="Call Driver"
-                    onPress={async () => {
-                      if (!busId) {
-                        Alert.alert('Driver unavailable', 'No bus is currently assigned to this student.');
-                        return;
-                      }
-                      await Linking.openURL('tel:+10000000000');
-                    }}
-                  />
-                  <TravelActionRow
-                    icon={<CircleHelp color="#2b2b2b" size={18} />}
-                    title="Helpdesk"
-                    onPress={() => router.push('/modals/helpdesk' as any)}
-                  />
-                </CardContent>
-              </Card>
-            </ScrollView>
-          </TabsContent>
-
           <TabsContent value="timeline" style={styles.tabContent}>
             <ScrollView
               contentContainerStyle={styles.scrollBody}
               showsVerticalScrollIndicator={false}
               refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}>
-              <Card>
+              <Card style={{ borderColor, backgroundColor: cardBackground }}>
                 <CardHeader style={styles.timelineTitleRow}>
                   <CardTitle>Route Progress</CardTitle>
                   <Badge variant="secondary">
@@ -292,8 +262,8 @@ export default function ChildDetailScreen() {
                   {timeline.map((point, idx) => (
                     <View key={`${point.timestamp ?? idx}-${idx}`} style={styles.timelineRow}>
                       <View style={styles.timelineRail}>
-                        <View style={[styles.timelineDot, { backgroundColor: idx === timeline.length - 1 ? tint : '#7e9fff' }]} />
-                        {idx < timeline.length - 1 ? <View style={styles.timelineLine} /> : null}
+                        <View style={[styles.timelineDot, { backgroundColor: idx === timeline.length - 1 ? tint : iconColor }]} />
+                        {idx < timeline.length - 1 ? <View style={[styles.timelineLine, { backgroundColor: borderColor }]} /> : null}
                       </View>
                       <View style={styles.timelineText}>
                         <View style={styles.rowTitle}>
@@ -302,114 +272,11 @@ export default function ChildDetailScreen() {
                             Stop {idx + 1}: {formatStopLabel(point)}
                           </ThemedText>
                         </View>
-                        <ThemedText>{formatTimestamp(point.timestamp)}</ThemedText>
+                        <ThemedText style={{ color: mutedText }}>{formatTimestamp(point.timestamp)}</ThemedText>
                       </View>
                     </View>
                   ))}
-                  {timeline.length === 0 && !history.isLoading && !current.isLoading ? (
-                    <ThemedText>No route points available yet.</ThemedText>
-                  ) : null}
-                </CardContent>
-              </Card>
-            </ScrollView>
-          </TabsContent>
-
-          <TabsContent value="attendance" style={styles.tabContent}>
-            <ScrollView
-              contentContainerStyle={styles.scrollBody}
-              showsVerticalScrollIndicator={false}
-              refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}>
-              <Card style={[styles.etaCard, { borderColor: emphasisBorder, backgroundColor: emphasisBackground }]}>
-                <CardHeader style={styles.attendanceTopHeader}>
-                  <View>
-                    <CardTitle>Trip Status</CardTitle>
-                  </View>
-                  <View style={styles.headerIcons}>
-                    <Bell color="#2b2b2b" size={18} />
-                    <UserCircle2 color="#2b2b2b" size={20} />
-                  </View>
-                </CardHeader>
-                <CardContent style={styles.etaContent}>
-                  <View style={styles.etaRow}>
-                    <Clock3 color="#2b2b2b" size={18} />
-                    <View style={styles.etaTextBox}>
-                      <ThemedText type="defaultSemiBold">
-                        {etaTimeLabel ? 'Arriving in 5 minutes' : 'ETA unavailable right now'}
-                      </ThemedText>
-                      <ThemedText>{etaTimeLabel ? `Reaching by ${etaTimeLabel}` : 'Waiting for live bus timestamp'}</ThemedText>
-                    </View>
-                  </View>
-                  <View style={styles.metaGrid}>
-                    <Badge variant="outline">
-                      <ThemedText>Vehicle {busId || 'Unassigned'}</ThemedText>
-                    </Badge>
-                    <Badge variant="outline">
-                      <ThemedText>Route Name: {String(student.route_name ?? 'Not available')}</ThemedText>
-                    </Badge>
-                    <Badge variant="outline">
-                      <ThemedText>Stop: {String(student.stop_name ?? 'Not available')}</ThemedText>
-                    </Badge>
-                  </View>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader style={styles.weekHeader}>
-                  <Pressable accessibilityRole="button" style={styles.weekNavBtn} onPress={() => setWeekOffset((prev) => prev - 1)}>
-                    <ChevronLeft color={iconColor} size={18} />
-                  </Pressable>
-                  <View style={styles.weekLabelBox}>
-                    <CardTitle>This Week</CardTitle>
-                    <ThemedText>{formatDateRange(weekRange.start, weekRange.end)}</ThemedText>
-                  </View>
-                  <Pressable accessibilityRole="button" style={styles.weekNavBtn} onPress={() => setWeekOffset((prev) => prev + 1)}>
-                    <ChevronRight color={iconColor} size={18} />
-                  </Pressable>
-                </CardHeader>
-                <CardContent style={styles.weekContent}>
-                  <Pressable
-                    accessibilityRole="switch"
-                    accessibilityState={{ checked: showAllKidsTrip }}
-                    style={[styles.showAllToggle, { borderColor }]}
-                    onPress={() => setShowAllKidsTrip((prev) => !prev)}>
-                    <ThemedText type="defaultSemiBold">Show All Kids Trip</ThemedText>
-                    <Badge variant={showAllKidsTrip ? 'default' : 'secondary'}>
-                      <ThemedText>{showAllKidsTrip ? 'On' : 'Off'}</ThemedText>
-                    </Badge>
-                  </Pressable>
-
-                  {attendance.isLoading ? <ThemedText>Loading attendance history…</ThemedText> : null}
-                  {attendance.error ? (
-                    <ThemedText style={[styles.errorText, { color: errorColor }]}>
-                      {(attendance.error as any)?.message ?? 'Failed to load attendance history'}
-                    </ThemedText>
-                  ) : null}
-
-                  {attendanceRows.map((row) => (
-                    <View
-                      key={row.key}
-                      style={[
-                        styles.dayCard,
-                        row.isToday
-                          ? [styles.dayCardHighlight, { borderColor: emphasisBorder, backgroundColor: emphasisSoftBackground }]
-                          : [styles.dayCardMuted, { borderColor }],
-                      ]}>
-                      <View style={styles.dayHeader}>
-                        <ThemedText type="defaultSemiBold">{row.dayLabel}</ThemedText>
-                        <Badge variant={row.isToday ? 'default' : 'secondary'}>
-                          <ThemedText>{row.isToday ? 'Upcoming/Active' : 'Scheduled'}</ThemedText>
-                        </Badge>
-                      </View>
-                      <View style={styles.pickDropRow}>
-                        <ThemedText>Pick up</ThemedText>
-                        <ThemedText type="defaultSemiBold">{row.pickupTime}</ThemedText>
-                      </View>
-                      <View style={styles.pickDropRow}>
-                        <ThemedText>Drop by</ThemedText>
-                        <ThemedText type="defaultSemiBold">{row.dropTime}</ThemedText>
-                      </View>
-                    </View>
-                  ))}
+                  {timeline.length === 0 && !history.isLoading && !current.isLoading ? <ThemedText>No route points available yet.</ThemedText> : null}
                 </CardContent>
               </Card>
             </ScrollView>
@@ -420,53 +287,102 @@ export default function ChildDetailScreen() {
   );
 }
 
+function KpiCard({
+  icon,
+  label,
+  value,
+  borderColor,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  borderColor: string;
+}) {
+  return (
+    <View style={[styles.kpiCard, { borderColor }]}>
+      <View style={styles.kpiLabelRow}>
+        {icon}
+        <ThemedText style={styles.kpiLabel}>{label}</ThemedText>
+      </View>
+      <ThemedText type="defaultSemiBold" numberOfLines={1}>
+        {value}
+      </ThemedText>
+    </View>
+  );
+}
+
+function InfoTile({
+  icon,
+  label,
+  value,
+  borderColor,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  borderColor: string;
+}) {
+  return (
+    <View style={[styles.infoTile, { borderColor }]}>
+      <View style={styles.kpiLabelRow}>
+        {icon}
+        <ThemedText style={styles.kpiLabel}>{label}</ThemedText>
+      </View>
+      <ThemedText type="defaultSemiBold">{value}</ThemedText>
+    </View>
+  );
+}
+
+function ActionRow({
+  icon,
+  title,
+  onPress,
+  borderColor,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  onPress: () => void;
+  borderColor: string;
+}) {
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={title} style={[styles.actionRow, { borderColor }]} onPress={onPress}>
+      <View style={styles.actionLeft}>
+        {icon}
+        <ThemedText type="defaultSemiBold">{title}</ThemedText>
+      </View>
+      <ChevronRight color={borderColor} size={18} />
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, gap: 12, paddingBottom: 0 },
   tabsRoot: { flex: 1 },
   tabsList: { marginBottom: 8 },
   tabContent: { flex: 1 },
   scrollBody: { gap: 12, paddingBottom: 36 },
-  identityBody: {
+  heroCard: { borderWidth: 1, borderRadius: 16 },
+  heroBody: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  heroText: { gap: 6, flex: 1, paddingRight: 12 },
+  studentName: { fontSize: 26, lineHeight: 30 },
+  subtitle: { marginTop: 1 },
+  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  kpiCard: { width: '48%', borderWidth: 1, borderRadius: 12, padding: 12, gap: 6 },
+  kpiLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  kpiLabel: { opacity: 0.72, fontSize: 12 },
+  quickActions: { gap: 10 },
+  actionRow: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  studentName: {
-    fontSize: 20,
-  },
-  subtitle: {
-    opacity: 0.7,
-    marginTop: 2,
-  },
-  infoCard: {
-    width: 240,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 14,
-    marginRight: 10,
-    gap: 6,
-  },
-  infoTitle: {
-    opacity: 0.7,
-  },
-  infoValue: {
-    fontSize: 18,
-  },
-  paginationDots: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 12,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 4,
-    backgroundColor: '#d1d5db',
-  },
-  dotActive: {
-    width: 16,
-  },
+  actionLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  detailsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  infoTile: { width: '48%', borderWidth: 1, borderRadius: 12, padding: 12, gap: 6 },
   addressRow: {
     borderWidth: 1,
     borderRadius: 12,
@@ -475,149 +391,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  addressTextArea: {
-    gap: 8,
-    flexShrink: 1,
-  },
-  addressText: {
-    opacity: 0.85,
-  },
-  travelCard: {
-    backgroundColor: '#ffffff',
-  },
-  travelMenu: {
-    gap: 10,
-  },
-  travelRow: {
-    borderRadius: 12,
-    backgroundColor: '#f4f8ff',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  travelRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  timelineTitleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  timelineContent: {
-    gap: 12,
-  },
-  timelineRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  timelineRail: {
-    width: 16,
-    alignItems: 'center',
-  },
-  timelineDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 999,
-    marginTop: 4,
-  },
-  timelineLine: {
-    marginTop: 2,
-    width: 2,
-    flex: 1,
-    minHeight: 40,
-    backgroundColor: '#7e9fff',
-  },
-  timelineText: {
-    gap: 4,
-    flex: 1,
-    paddingBottom: 12,
-  },
-  rowTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  etaCard: {
-    backgroundColor: '#ffffff',
-  },
-  attendanceTopHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  etaContent: {
-    gap: 10,
-  },
-  etaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  etaTextBox: {
-    gap: 2,
-  },
-  metaGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  weekHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  weekLabelBox: {
-    alignItems: 'center',
-    gap: 2,
-  },
-  weekNavBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    borderRadius: 999,
-  },
-  weekContent: {
-    gap: 10,
-  },
-  showAllToggle: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  dayCard: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    gap: 8,
-  },
-  dayCardHighlight: {
-    backgroundColor: '#f4f8ff',
-  },
-  dayCardMuted: {
-    backgroundColor: '#ffffff',
-  },
-  dayHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  pickDropRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+  addressTextArea: { gap: 8, flexShrink: 1 },
+  addressText: { opacity: 0.85 },
+  timelineTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  timelineContent: { gap: 12 },
+  timelineRow: { flexDirection: 'row', gap: 12 },
+  timelineRail: { width: 16, alignItems: 'center' },
+  timelineDot: { width: 10, height: 10, borderRadius: 999, marginTop: 4 },
+  timelineLine: { marginTop: 2, width: 2, flex: 1, minHeight: 40 },
+  timelineText: { gap: 4, flex: 1, paddingBottom: 12 },
+  rowTitle: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   errorText: { fontSize: 14 },
 });
 
@@ -641,80 +424,3 @@ function timelineProgress(points: BusLocationPoint[]) {
   if (points.length <= 1) return 0;
   return Math.min(100, Math.round((points.length / 7) * 100));
 }
-
-function TravelActionRow({
-  icon,
-  title,
-  onPress,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={title} style={styles.travelRow} onPress={onPress}>
-      <View style={styles.travelRowLeft}>
-        {icon}
-        <ThemedText type="defaultSemiBold">{title}</ThemedText>
-      </View>
-      <ChevronRight color="#2b2b2b" size={18} />
-    </Pressable>
-  );
-}
-
-function getWeekRange(offset: number) {
-  const now = new Date();
-  const start = new Date(now);
-  const day = start.getDay();
-  const diffToMonday = day === 0 ? -6 : 1 - day;
-  start.setDate(start.getDate() + diffToMonday + offset * 7);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(start.getDate() + 6);
-  end.setHours(23, 59, 59, 999);
-  return { start, end };
-}
-
-function formatDateRange(start: Date, end: Date) {
-  const from = start.toLocaleDateString([], { day: 'numeric', month: 'short' });
-  const to = end.toLocaleDateString([], { day: 'numeric', month: 'short' });
-  return `${from} - ${to}`;
-}
-
-function buildAttendanceRows(events: AttendanceEvent[], start: Date) {
-  const byDate = new Map<string, AttendanceEvent[]>();
-  events.forEach((event) => {
-    const value = String(event.timestamp ?? event.createdAt ?? '');
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return;
-    const key = date.toISOString().slice(0, 10);
-    const list = byDate.get(key) ?? [];
-    list.push(event);
-    byDate.set(key, list);
-  });
-
-  return Array.from({ length: 7 }).map((_, idx) => {
-    const date = new Date(start);
-    date.setDate(start.getDate() + idx);
-    const key = date.toISOString().slice(0, 10);
-    const list = (byDate.get(key) ?? []).sort((a, b) =>
-      String(a.timestamp ?? a.createdAt ?? '').localeCompare(String(b.timestamp ?? b.createdAt ?? ''))
-    );
-    const pickup = list.find((event) => String(event.type).toLowerCase().includes('board'));
-    const drop = [...list].reverse().find((event) => String(event.type).toLowerCase().includes('exit'));
-    const today = new Date();
-    const isToday =
-      today.getFullYear() === date.getFullYear() &&
-      today.getMonth() === date.getMonth() &&
-      today.getDate() === date.getDate();
-
-    return {
-      key,
-      isToday,
-      dayLabel: date.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'short' }),
-      pickupTime: formatTimestamp(String(pickup?.timestamp ?? pickup?.createdAt ?? '')),
-      dropTime: formatTimestamp(String(drop?.timestamp ?? drop?.createdAt ?? '')),
-    };
-  });
-}
-

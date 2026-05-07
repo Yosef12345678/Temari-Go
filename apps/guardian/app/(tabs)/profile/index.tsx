@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { CircleHelp, Globe, LogOut, MoonStar, ShieldCheck, UserRound } from 'lucide-react-native';
+import { CircleHelp, Globe, LogOut, MessageCircleMore, MoonStar, ShieldCheck, UserRound } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -25,6 +25,8 @@ export default function ProfileTab() {
   const cardBackground = useThemeColor({}, 'background');
   const errorColor = useThemeColor({}, 'destructive');
   const iconColor = useThemeColor({}, 'icon');
+  const mutedText = useThemeColor({ light: '#64748b', dark: '#94a3b8' }, 'icon');
+  const heroBackground = useThemeColor({ light: '#eef4ff', dark: '#0f1d34' }, 'background');
   const [themeEnabled, setThemeEnabled] = React.useState(false);
   const [language, setLanguage] = React.useState<'english' | 'amharic'>('english');
 
@@ -39,7 +41,10 @@ export default function ProfileTab() {
       <ScrollView
         contentContainerStyle={styles.scrollBody}
         refreshControl={<RefreshControl refreshing={me.isRefetching} onRefresh={() => void me.refetch()} />}>
-        <ThemedText type="title">Profile</ThemedText>
+        <View style={[styles.titleCard, { borderColor, backgroundColor: heroBackground }]}>
+          <ThemedText type="title">Profile</ThemedText>
+          <ThemedText style={{ color: mutedText }}>Manage account, preferences, and support.</ThemedText>
+        </View>
 
         {me.isLoading ? <ThemedText>Loading…</ThemedText> : null}
         {me.error ? (
@@ -152,7 +157,19 @@ export default function ProfileTab() {
                 <CircleHelp color={iconColor} size={16} />
                 <View>
                   <ThemedText type="defaultSemiBold">Help Desk</ThemedText>
-                  <ThemedText>Open support chat</ThemedText>
+                  <ThemedText>View step-by-step help topics</ThemedText>
+                </View>
+              </View>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              style={[styles.supportButton, { borderColor }]}
+              onPress={() => router.push('/modals/live-chat' as any)}>
+              <View style={styles.prefLeft}>
+                <MessageCircleMore color={iconColor} size={16} />
+                <View>
+                  <ThemedText type="defaultSemiBold">Live Chat</ThemedText>
+                  <ThemedText>Chat directly with support</ThemedText>
                 </View>
               </View>
             </Pressable>
@@ -171,6 +188,13 @@ export default function ProfileTab() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, gap: 12 },
   scrollBody: { gap: 12, paddingBottom: 28 },
+  titleCard: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 2,
+  },
   heroCard: {
     borderWidth: 1,
   },
