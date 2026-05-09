@@ -25,6 +25,31 @@ export class Route extends Model {
   @Column({ type: DataType.TIME, allowNull: true })
   end_time?: string;
 
+  @Column({
+    type: DataType.ENUM('assigned', 'accepted', 'arrived', 'picked_up', 'completed', 'cancelled'),
+    allowNull: false,
+    defaultValue: 'assigned',
+  })
+  lifecycle_status!: 'assigned' | 'accepted' | 'arrived' | 'picked_up' | 'completed' | 'cancelled';
+
+  @Column({ type: DataType.DATE, allowNull: true })
+  accepted_at?: Date;
+
+  @Column({ type: DataType.DATE, allowNull: true })
+  arrived_at?: Date;
+
+  @Column({ type: DataType.DATE, allowNull: true })
+  picked_up_at?: Date;
+
+  @Column({ type: DataType.DATE, allowNull: true })
+  completed_at?: Date;
+
+  @Column({ type: DataType.DATE, allowNull: true })
+  cancelled_at?: Date;
+
+  @Column({ type: DataType.TEXT, allowNull: true })
+  cancel_reason?: string;
+
   @BelongsTo(() => Bus)
   bus!: Bus;
 

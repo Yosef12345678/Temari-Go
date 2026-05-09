@@ -4,7 +4,10 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 import type { Bus } from './bus-api';
 import type { Student } from './student-api';
 
-export interface RouteAssignmentStudent extends Pick<Student, 'id' | 'full_name' | 'grade' | 'home_latitude' | 'home_longitude'> {}
+export type RouteAssignmentStudent = Pick<
+  Student,
+  'id' | 'full_name' | 'grade' | 'home_latitude' | 'home_longitude'
+>;
 
 export interface RouteAssignment {
   id: number;
@@ -22,7 +25,14 @@ export interface Route {
   name: string;
   start_time?: string | null;
   end_time?: string | null;
-  bus?: Pick<Bus, 'id' | 'bus_number' | 'capacity'> | null;
+  lifecycle_status?: 'assigned' | 'accepted' | 'arrived' | 'picked_up' | 'completed' | 'cancelled';
+  accepted_at?: string | null;
+  arrived_at?: string | null;
+  picked_up_at?: string | null;
+  completed_at?: string | null;
+  cancelled_at?: string | null;
+  cancel_reason?: string | null;
+  bus?: Pick<Bus, 'id' | 'bus_number' | 'capacity' | 'driver_id'> | null;
   routeAssignments?: RouteAssignment[];
 }
 

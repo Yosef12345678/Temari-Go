@@ -7,6 +7,7 @@ import { authClient } from '@/lib/auth-client';
 import { useAuth } from '@/hooks/use-auth';
 import { busAPI, type Bus } from '@/lib/bus-api';
 import { studentAPI, type Student } from '@/lib/student-api';
+import { driverAPI, type DriverJobStatus } from '@/lib/driver-api';
 import {
   routeAPI,
   type Route,
@@ -82,6 +83,7 @@ import {
 } from '@/components/ui/tooltip';
 import {
   Bus as BusIcon,
+  CheckCircle2,
   Info,
   Loader2,
   Map,
@@ -156,6 +158,7 @@ export function RouteView() {
   const [directionsLoadingRouteId, setDirectionsLoadingRouteId] = useState<
     number | null
   >(null);
+  const [jobStatusLoadingRouteId, setJobStatusLoadingRouteId] = useState<number | null>(null);
   const [directionsSummary, setDirectionsSummary] = useState<string | null>(
     null,
   );
@@ -499,6 +502,74 @@ export function RouteView() {
     assignments.filter((a) => a.route_id === route.id).length ??
     0;
 
+  const lifecycleLabel = (status: DriverJobStatus | undefined) => {
+    switch (status) {
+      case 'accepted':
+        return 'Accepted';
+      case 'arrived':
+        return 'Arrived';
+      case 'picked_up':
+        return 'Picked Up';
+      case 'completed':
+        return 'Completed';
+      case 'cancelled':
+        return 'Cancelled';
+      case 'assigned':
+      default:
+        return 'Assigned';
+    }
+  };
+
+  const getNextTransitionAction = (
+    status: DriverJobStatus | undefined,
+  ): { action: 'accept' | 'arrive' | 'pickup' | 'complete'; label: string } | null => {
+    switch (status ?? 'assigned') {
+      case 'assigned':
+        return { action: 'accept', label: 'Mark accepted' };
+      case 'accepted':
+        return { action: 'arrive', label: 'Mark arrived' };
+      case 'arrived':
+        return { action: 'pickup', label: 'Mark pickup' };
+      case 'picked_up':
+        return { action: 'complete', label: 'Mark complete' };
+      default:
+        return null;
+    }
+  };
+
+  const handleJobStatusChange = async (
+    route: Route,
+    action: 'accept' | 'arrive' | 'pickup' | 'complete' | 'cancel',
+  ) => {
+    const bus = route.bus ?? findBusById(route.bus_id);
+    const driverId = bus?.driver_id;
+    if (!driverId) {
+      toast.error('Assign a driver to this route bus first.');
+      return;
+    }
+
+    setJobStatusLoadingRouteId(route.id);
+    setError(null);
+    try {
+      const updated = await driverAPI.updateJobStatus(
+        route.id,
+        action,
+        { driver_id: driverId },
+        token,
+      );
+      setRoutes((prev) =>
+        prev.map((r) => (r.id === route.id ? { ...r, ...(updated as Route) } : r)),
+      );
+      toast.success(`Route marked ${action}.`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to update route status';
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setJobStatusLoadingRouteId(null);
+    }
+  };
+
   return (
     <div className="space-y-6 p-6">
       <Breadcrumb>
@@ -640,9 +711,14 @@ export function RouteView() {
                               </span>
                             )}
                           </div>
-                          <Badge variant="secondary" className="mt-2 font-normal">
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <Badge variant="secondary" className="font-normal">
                             {total} student{total !== 1 ? 's' : ''}
-                          </Badge>
+                            </Badge>
+                            <Badge variant="outline" className="font-normal">
+                              {lifecycleLabel(route.lifecycle_status)}
+                            </Badge>
+                          </div>
                         </div>
                         <TooltipProvider>
                           <div className="flex shrink-0 gap-1">
@@ -701,6 +777,33 @@ export function RouteView() {
                               </TooltipTrigger>
                               <TooltipContent>Get directions</TooltipContent>
                             </Tooltip>
+                            {getNextTransitionAction(route.lifecycle_status) && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() =>
+                                      void handleJobStatusChange(
+                                        route,
+                                        getNextTransitionAction(route.lifecycle_status)!.action,
+                                      )
+                                    }
+                                    disabled={jobStatusLoadingRouteId === route.id}
+                                    aria-label="Advance job status"
+                                  >
+                                    {jobStatusLoadingRouteId === route.id ? (
+                                      <Loader2 className="size-4 animate-spin" />
+                                    ) : (
+                                      <CheckCircle2 className="size-4" />
+                                    )}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {getNextTransitionAction(route.lifecycle_status)!.label}
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
@@ -746,6 +849,7 @@ export function RouteView() {
                   <TableHead>Bus</TableHead>
                   <TableHead>Window</TableHead>
                   <TableHead>Assignments</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -785,6 +889,11 @@ export function RouteView() {
                           <Users className="size-3 text-muted-foreground" />
                           {total} student{total === 1 ? '' : 's'}
                         </span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="font-normal">
+                          {lifecycleLabel(route.lifecycle_status)}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <TooltipProvider>
@@ -844,6 +953,33 @@ export function RouteView() {
                               </TooltipTrigger>
                               <TooltipContent>Get directions</TooltipContent>
                             </Tooltip>
+                            {getNextTransitionAction(route.lifecycle_status) && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() =>
+                                      void handleJobStatusChange(
+                                        route,
+                                        getNextTransitionAction(route.lifecycle_status)!.action,
+                                      )
+                                    }
+                                    disabled={jobStatusLoadingRouteId === route.id}
+                                    aria-label="Advance job status"
+                                  >
+                                    {jobStatusLoadingRouteId === route.id ? (
+                                      <Loader2 className="size-4 animate-spin" />
+                                    ) : (
+                                      <CheckCircle2 className="size-4" />
+                                    )}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {getNextTransitionAction(route.lifecycle_status)!.label}
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button

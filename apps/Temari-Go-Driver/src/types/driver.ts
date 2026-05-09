@@ -1,0 +1,43 @@
+export type DriverJobStatus =
+  | 'assigned'
+  | 'accepted'
+  | 'arrived'
+  | 'picked_up'
+  | 'completed'
+  | 'cancelled';
+
+export type DriverJobStudent = {
+  id: number;
+  full_name?: string;
+  grade?: string;
+};
+
+export type DriverJobAssignment = {
+  id: number;
+  student_id: number;
+  pickup_latitude?: number;
+  pickup_longitude?: number;
+  pickup_order?: number;
+  student?: DriverJobStudent;
+};
+
+export type DriverJob = {
+  id: number;
+  bus_id: number;
+  name: string;
+  lifecycle_status: DriverJobStatus;
+  start_time?: string;
+  end_time?: string;
+  accepted_at?: string | null;
+  arrived_at?: string | null;
+  picked_up_at?: string | null;
+  completed_at?: string | null;
+  cancelled_at?: string | null;
+  cancel_reason?: string | null;
+  updated_at?: string;
+  bus?: {
+    id: number;
+    bus_number: string;
+  };
+  routeAssignments?: DriverJobAssignment[];
+};

@@ -24,6 +24,7 @@ import routeRoutes from './routes/route.routes';
 import routeAssignmentRoutes from './routes/routeAssignment.routes';
 import schoolRoutes from './routes/school.routes';
 import deviceRoutes from './routes/device.routes';
+import driverRoutes from './routes/driver.routes';
 
 dotenv.config();
 
@@ -120,6 +121,7 @@ app.use('/api/routes', routeRoutes);
 app.use('/api/route-assignments', routeAssignmentRoutes);
 app.use('/api/schools', schoolRoutes);
 app.use('/api/devices', deviceRoutes);
+app.use('/api/driver', driverRoutes);
 
 app.use(errorMiddleware);
 

@@ -6,6 +6,14 @@ export interface Driver {
   email: string;
 }
 
+export type DriverJobStatus =
+  | 'assigned'
+  | 'accepted'
+  | 'arrived'
+  | 'picked_up'
+  | 'completed'
+  | 'cancelled';
+
 function getHeaders(accessToken?: string): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -27,6 +35,28 @@ export const driverAPI = {
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       throw new Error(err.message || 'Failed to fetch drivers');
+    }
+
+    const result = await response.json();
+    return result.data ?? result;
+  },
+
+  async updateJobStatus(
+    jobId: number,
+    action: 'accept' | 'arrive' | 'pickup' | 'complete' | 'cancel',
+    input: { driver_id: number; reason?: string },
+    accessToken?: string
+  ): Promise<unknown> {
+    const response = await fetch(`${API_BASE_URL}/api/driver/jobs/${jobId}/${action}`, {
+      method: 'POST',
+      headers: getHeaders(accessToken),
+      credentials: 'include',
+      body: JSON.stringify(input),
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to update job status');
     }
 
     const result = await response.json();

@@ -146,7 +146,7 @@ export default function BillingTab() {
           ))}
           {!invoices.isLoading && (invoices.data?.data?.length ?? 0) === 0 ? (
             <EmptyStateCard
-              title={t('billingTab.emptyInvoicesTitle')}
+               title={t('billingTab.emptyInvoicesTitle')}
               subtitle={t('billingTab.emptyInvoicesSubtitle')}
               image={require('@/assets/images/illustrations/empty-billing.svg')}
               borderColor={borderColor}
