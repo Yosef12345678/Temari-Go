@@ -15,6 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/src/hooks/useAuth';
 import { useMe } from '@/src/hooks/useMe';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { i18n, setAppLanguage } from '@/src/i18n';
 
 export default function ProfileTab() {
   const router = useRouter();
@@ -28,7 +29,19 @@ export default function ProfileTab() {
   const mutedText = useThemeColor({ light: '#64748b', dark: '#94a3b8' }, 'icon');
   const heroBackground = useThemeColor({ light: '#eef4ff', dark: '#0f1d34' }, 'background');
   const [themeEnabled, setThemeEnabled] = React.useState(false);
-  const [language, setLanguage] = React.useState<'english' | 'amharic'>('english');
+  const [language, setLanguage] = React.useState<'english' | 'amharic'>(() => (i18n.language === 'am' ? 'amharic' : 'english'));
+
+  React.useEffect(() => {
+    const syncFromI18n = (lng: string) => {
+      setLanguage(lng === 'am' ? 'amharic' : 'english');
+    };
+
+    syncFromI18n(i18n.language);
+    i18n.on('languageChanged', syncFromI18n);
+    return () => {
+      i18n.off('languageChanged', syncFromI18n);
+    };
+  }, []);
 
   const accountName = String(me.data?.name ?? 'Guardian');
   const accountEmail = String(me.data?.email ?? '—');
@@ -111,14 +124,18 @@ export default function ProfileTab() {
                 <Button
                   variant={language === 'english' ? 'default' : 'outline'}
                   size="sm"
-                  onPress={() => setLanguage('english')}>
+                  onPress={() => {
+                    void setAppLanguage('en');
+                  }}>
                   <ThemedText>English</ThemedText>
                 </Button>
                 <Button
                   variant={language === 'amharic' ? 'default' : 'outline'}
                   size="sm"
-                  onPress={() => setLanguage('amharic')}>
-                  <ThemedText>Amharic</ThemedText>
+                  onPress={() => {
+                    void setAppLanguage('am');
+                  }}>
+                  <ThemedText>አማርኛ</ThemedText>
                 </Button>
               </View>
             </View>

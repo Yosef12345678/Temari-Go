@@ -8,18 +8,18 @@ import {
   IdCard,
   LocateFixed,
   MapPin,
+  Satellite,
   School,
   ShieldCheck,
-  Users,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
+import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { RestrictedTabContent } from '@/components/access/restricted-tab-content';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { useParentAccess } from '@/src/hooks/useParentAccess';
 import { useStudentsList } from '@/src/hooks/useStudents';
@@ -31,12 +31,14 @@ export default function ChildrenTab() {
   const insets = useSafeAreaInsets();
   const students = useStudentsList();
   const access = useParentAccess();
+  const { t } = useTranslation();
   const borderColor = useThemeColor({}, 'border');
   const cardBackground = useThemeColor({}, 'background');
   const errorColor = useThemeColor({}, 'destructive');
   const iconColor = useThemeColor({}, 'icon');
   const muted = useThemeColor({}, 'icon');
   const tint = useThemeColor({}, 'tint');
+  const readinessBlue = useThemeColor({ light: '#2563eb', dark: '#60a5fa' }, 'tint');
   const successColor = useThemeColor({ light: '#059669', dark: '#34d399' }, 'tint');
   const heroBackground = useThemeColor({ light: '#5ea2ff', dark: '#1f4fa3' }, 'tint');
   const heroBackgroundSecondary = useThemeColor({ light: '#4b8eff', dark: '#2b5fc0' }, 'tint');
@@ -54,8 +56,8 @@ export default function ChildrenTab() {
       <RestrictedTabContent
         resolving={access.isResolving}
         restricted={access.isRestricted}
-        title="Student access required"
-        subtitle="Student registration is managed by admins. Contact admin to assign a child to your account."
+        title={t('childrenTab.restrictedTitle')}
+        subtitle={t('childrenTab.restrictedSubtitle')}
         onRetry={() => {
           void access.refetch();
         }}>
@@ -73,21 +75,21 @@ export default function ChildrenTab() {
                   <Image source={require('@/assets/images/transport.svg')} style={styles.heroLogo} contentFit="contain" />
                 </View>
                 <View>
-                  <ThemedText style={styles.greetingTitle}>Hi, Temari</ThemedText>
+                  <ThemedText style={styles.greetingTitle}>{t('childrenTab.greetingTitle')}</ThemedText>
                   <ThemedText numberOfLines={1} style={{ color: muted }}>
-                    Guardian Command Center
+                    {t('childrenTab.greetingRole')}
                   </ThemedText>
                 </View>
               </View>
               <View style={[styles.readinessTag, { borderColor, backgroundColor: subtleCard }]}>
                 <View style={styles.readinessIconWrap}>
-                  <Users color={tint} size={12} />
+                  <Satellite color={readinessBlue} size={14} />
                 </View>
                 <View>
                   <ThemedText style={styles.readinessTitle} type="defaultSemiBold">
-                    {studentCount} child
+                    {t('childrenTab.childCount', { count: studentCount })}
                   </ThemedText>
-                  <ThemedText style={styles.readinessText}>ready to track</ThemedText>
+                  <ThemedText style={styles.readinessText}>{t('childrenTab.readyToTrack')}</ThemedText>
                 </View>
                 <ChevronRight color={iconColor} size={13} />
               </View>
@@ -100,9 +102,9 @@ export default function ChildrenTab() {
               ]}>
               <View style={[styles.heroGradientOverlay, { backgroundColor: heroBackgroundSecondary }]} />
               <View style={styles.heroTextWrap}>
-                <ThemedText style={styles.heroTitle}>All your children, routes & updates in one place</ThemedText>
+                <ThemedText style={styles.heroTitle}>{t('childrenTab.heroTitle')}</ThemedText>
                 <ThemedText style={styles.heroSubtitle}>
-                  View details, check status, and track live - instantly from each child card.
+                  {t('childrenTab.heroSubtitle')}
                 </ThemedText>
               </View>
               <View style={styles.heroArtWrap}>
@@ -115,13 +117,13 @@ export default function ChildrenTab() {
               <View style={[styles.heroStatsPanel, { borderColor, backgroundColor: heroStatCard }]}>
                 <View style={styles.heroStatCell}>
                   <View style={[styles.heroStatIconWrap, { backgroundColor: '#e7f0ff' }]}>
-                    <Users color={tint} size={16} />
+                    <Satellite color={readinessBlue} size={16} />
                   </View>
                   <View>
                     <ThemedText style={styles.heroStatValue} type="defaultSemiBold">
                       {String(studentCount)}
                     </ThemedText>
-                    <ThemedText style={styles.heroStatLabel}>Assigned children</ThemedText>
+                    <ThemedText style={styles.heroStatLabel}>{t('childrenTab.assignedChildren')}</ThemedText>
                   </View>
                 </View>
                 <View style={[styles.heroStatDivider, { backgroundColor: borderColor }]} />
@@ -133,14 +135,14 @@ export default function ChildrenTab() {
                     <ThemedText style={styles.heroStatValue} type="defaultSemiBold">
                       {String(readyCount)}
                     </ThemedText>
-                    <ThemedText style={styles.heroStatLabel}>Ready for live map</ThemedText>
+                    <ThemedText style={styles.heroStatLabel}>{t('childrenTab.readyForLiveMap')}</ThemedText>
                   </View>
                 </View>
               </View>
             </View>
 
             <View style={styles.sectionHeader}>
-              <ThemedText type="subtitle">Your Children</ThemedText>
+              <ThemedText type="subtitle">{t('childrenTab.yourChildren')}</ThemedText>
               <View style={[styles.sectionAccent, { backgroundColor: tint }]} />
             </View>
           </View>
@@ -151,11 +153,11 @@ export default function ChildrenTab() {
               <View style={styles.cardTopRow}>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Open details for ${resolveStudentName(item)}`}
+                  accessibilityLabel={t('childrenTab.accessibilityOpenDetails', { name: resolveStudentName(item, t) })}
                   onPress={() => router.push(`/children/${item.id}` as any)}
                   style={styles.cardDetailsButton}>
                   <View style={[styles.avatarShell, { backgroundColor: surfaceSoft }]}>
-                    <Avatar className="size-12" alt={`${resolveStudentName(item)} avatar`}>
+                    <Avatar className="size-12" alt={`${resolveStudentName(item, t)} avatar`}>
                       <AvatarImage
                         source={
                           resolveAvatarUrl(item)
@@ -173,27 +175,27 @@ export default function ChildrenTab() {
                   <View style={styles.nameSection}>
                     <View style={styles.nameRow}>
                       <ThemedText type="defaultSemiBold" style={styles.studentName}>
-                        {resolveStudentName(item)}
+                        {resolveStudentName(item, t)}
                       </ThemedText>
                       {hasTrackableData(item) ? (
                         <View style={[styles.liveChip, { backgroundColor: liveChipBackground }]}>
                           <View style={[styles.liveDot, { backgroundColor: successColor }]} />
-                          <ThemedText style={styles.liveChipText}>Live Ready</ThemedText>
+                          <ThemedText style={styles.liveChipText}>{t('childrenTab.liveReady')}</ThemedText>
                         </View>
                       ) : null}
                     </View>
                     <View style={styles.metaRow}>
                       <School color={iconColor} size={14} />
-                      <ThemedText style={styles.schoolText}>{resolveSchoolName(item)}</ThemedText>
+                      <ThemedText style={styles.schoolText}>{resolveSchoolName(item, t)}</ThemedText>
                     </View>
                     <View style={styles.badges}>
                       <View style={[styles.chip, { backgroundColor: chipSoft, borderColor }]}>
                         <GraduationCap color={iconColor} size={13} />
-                        <ThemedText style={styles.chipText}>{resolveGradeLabel(item)}</ThemedText>
+                        <ThemedText style={styles.chipText}>{resolveGradeLabel(item, t)}</ThemedText>
                       </View>
                       <View style={[styles.chip, { backgroundColor: chipSoft, borderColor }]}>
                         <IdCard color={iconColor} size={13} />
-                        <ThemedText style={styles.chipText}>{resolveStudentIdLabel(item)}</ThemedText>
+                        <ThemedText style={styles.chipText}>{resolveStudentIdLabel(item, t)}</ThemedText>
                       </View>
                     </View>
                   </View>
@@ -208,15 +210,15 @@ export default function ChildrenTab() {
                   <View style={[styles.statusIconShell, { backgroundColor: subtleCard }]}>
                     <LocateFixed color={tint} size={18} />
                   </View>
-                  <ThemedText style={styles.statusText}>{resolveStatusText(item)}</ThemedText>
+                  <ThemedText style={styles.statusText}>{resolveStatusText(item, t)}</ThemedText>
                 </View>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Track live route for ${resolveStudentName(item)}`}
+                  accessibilityLabel={t('childrenTab.accessibilityTrackLive', { name: resolveStudentName(item, t) })}
                   onPress={() => router.push(`/children/${item.id}/tracking` as any)}
                   style={[styles.trackButton, { backgroundColor: tint }]}>
                   <LocateFixed color="#f8fafc" size={14} />
-                  <ThemedText style={styles.trackButtonText} type="defaultSemiBold">Track Live</ThemedText>
+                  <ThemedText style={styles.trackButtonText} type="defaultSemiBold">{t('childrenTab.trackLive')}</ThemedText>
                   <ChevronRight color="#f8fafc" size={14} />
                 </Pressable>
               </View>
@@ -227,12 +229,12 @@ export default function ChildrenTab() {
           students.isLoading ? null : (
             <Card style={[styles.stateCard, { borderColor, backgroundColor: cardBackground }]}>
               <CardContent style={styles.stateCardBody}>
-                <ThemedText type="defaultSemiBold">No children assigned yet</ThemedText>
+                <ThemedText type="defaultSemiBold">{t('childrenTab.emptyTitle')}</ThemedText>
                 <ThemedText style={styles.subtitle}>
-                  Your admin needs to assign a child before live tracking and attendance updates are available.
+                  {t('childrenTab.emptySubtitle')}
                 </ThemedText>
                 <Pressable accessibilityRole="button" style={[styles.retryButton, { borderColor }]} onPress={() => void access.refetch()}>
-                  <ThemedText type="defaultSemiBold">Check again</ThemedText>
+                  <ThemedText type="defaultSemiBold">{t('childrenTab.emptyCta')}</ThemedText>
                 </Pressable>
               </CardContent>
             </Card>
@@ -243,8 +245,8 @@ export default function ChildrenTab() {
             {students.isLoading ? (
               <Card style={[styles.stateCard, { borderColor, backgroundColor: cardBackground }]}>
                 <CardContent style={styles.stateCardBody}>
-                  <ThemedText type="defaultSemiBold">Preparing your children dashboard...</ThemedText>
-                  <ThemedText style={styles.subtitle}>Fetching assignment, school, and latest tracking availability.</ThemedText>
+                  <ThemedText type="defaultSemiBold">{t('childrenTab.loadingTitle')}</ThemedText>
+                  <ThemedText style={styles.subtitle}>{t('childrenTab.loadingSubtitle')}</ThemedText>
                 </CardContent>
               </Card>
             ) : null}
@@ -252,13 +254,13 @@ export default function ChildrenTab() {
               <Card style={[styles.stateCard, { borderColor, backgroundColor: cardBackground }]}>
                 <CardContent style={styles.stateCardBody}>
                   <ThemedText type="defaultSemiBold" style={{ color: errorColor }}>
-                    Failed to load children
+                    {t('childrenTab.errorTitle')}
                   </ThemedText>
                   <ThemedText style={styles.subtitle}>
-                    {(students.error as any)?.message ?? 'We could not fetch current children data. Please retry.'}
+                    {(students.error as any)?.message ?? t('childrenTab.errorFallback')}
                   </ThemedText>
                   <Pressable accessibilityRole="button" style={[styles.retryButton, { borderColor }]} onPress={() => void students.refetch()}>
-                    <ThemedText type="defaultSemiBold">Retry</ThemedText>
+                    <ThemedText type="defaultSemiBold">{t('childrenTab.errorCta')}</ThemedText>
                   </Pressable>
                 </CardContent>
               </Card>
@@ -269,8 +271,8 @@ export default function ChildrenTab() {
                   <ShieldCheck color={successColor} size={18} />
                 </View>
                 <View style={styles.safetyTextWrap}>
-                  <ThemedText type="defaultSemiBold">We keep your children safe</ThemedText>
-                  <ThemedText style={styles.subtitle}>Your child&apos;s safety is our priority.</ThemedText>
+                  <ThemedText type="defaultSemiBold">{t('childrenTab.safetyTitle')}</ThemedText>
+                  <ThemedText style={styles.subtitle}>{t('childrenTab.safetySubtitle')}</ThemedText>
                 </View>
                 <ChevronRight color={iconColor} size={16} />
               </CardContent>
@@ -325,27 +327,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    borderRadius: 999,
+    height: 34,
+    paddingHorizontal: 10,
+    paddingVertical: 0,
     flexShrink: 0,
-    maxWidth: 126,
-    marginLeft: 10,
+    maxWidth: 134,
+    marginLeft: 8,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 3,
   },
   readinessIconWrap: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#e7f0ff',
+    backgroundColor: '#dbeafe',
   },
-  readinessTitle: { fontSize: 11 },
-  readinessText: { fontSize: 10, opacity: 0.82 },
+  readinessTitle: { fontSize: 11, lineHeight: 13 },
+  readinessText: { fontSize: 10, lineHeight: 12, opacity: 0.82 },
   heroTextWrap: { gap: 8, width: '58%', zIndex: 2 },
   heroTitle: { color: '#f8fafc', fontSize: 18, lineHeight: 25, fontWeight: '700' },
   heroSubtitle: { color: '#eff6ff', opacity: 0.96, fontSize: 11, lineHeight: 16 },
@@ -527,15 +530,17 @@ const styles = StyleSheet.create({
 });
 
 function getInitials(student: StudentListItem) {
-  const name = resolveStudentName(student);
+  const source = student as Record<string, unknown>;
+  const name = String(source.full_name ?? source.fullName ?? source.student_name ?? source.name ?? '').trim();
   if (!name) return 'S';
   const parts = name.split(/\s+/).slice(0, 2);
   return parts.map((part) => part.charAt(0).toUpperCase()).join('');
 }
 
-function resolveStudentName(student: StudentListItem) {
+function resolveStudentName(student: StudentListItem, t: (key: string, options?: any) => string) {
   const source = student as Record<string, unknown>;
-  return String(source.full_name ?? source.fullName ?? source.student_name ?? source.name ?? 'Student').trim() || 'Student';
+  const fallback = t('students.fallbackStudent');
+  return String(source.full_name ?? source.fullName ?? source.student_name ?? source.name ?? fallback).trim() || fallback;
 }
 
 function resolveAvatarUrl(student: StudentListItem) {
@@ -543,35 +548,38 @@ function resolveAvatarUrl(student: StudentListItem) {
   return String(source.avatarUrl ?? source.avatar_url ?? source.photoUrl ?? source.photo_url ?? '').trim();
 }
 
-function resolveSchoolName(student: StudentListItem) {
+function resolveSchoolName(student: StudentListItem, t: (key: string, options?: any) => string) {
   const source = student as Record<string, unknown>;
   const value = String(source.school_name ?? source.schoolName ?? source.school ?? '').trim();
-  return value || 'School information unavailable';
+  return value || t('students.schoolUnavailable');
 }
 
-function resolveGradeLabel(student: StudentListItem) {
+function resolveGradeLabel(student: StudentListItem, t: (key: string, options?: any) => string) {
   const source = student as Record<string, unknown>;
   const grade = source.grade ?? source.gradeName ?? source.class_name ?? source.className;
-  return grade === undefined || grade === null || String(grade).trim() === '' ? 'Grade -' : `Grade ${String(grade)}`;
+  return grade === undefined || grade === null || String(grade).trim() === ''
+    ? t('students.gradeUnknown')
+    : t('students.gradeValue', { grade: String(grade) });
 }
 
-function resolveStudentIdLabel(student: StudentListItem) {
+function resolveStudentIdLabel(student: StudentListItem, t: (key: string, options?: any) => string) {
   const source = student as Record<string, unknown>;
   const value = String(source.studentId ?? source.student_id ?? source.id ?? '').trim();
-  return value ? `ID ${value}` : 'ID -';
+  return value ? t('students.idValue', { id: value }) : t('students.idUnknown');
 }
 
-function resolveStatusText(student: StudentListItem) {
+function resolveStatusText(student: StudentListItem, t: (key: string, options?: any) => string) {
   const source = student as Record<string, unknown>;
   const rawValue = source.lastSeenAt ?? source.last_seen_at ?? source.updatedAt ?? source.updated_at;
   const value = String(rawValue ?? '').trim();
-  if (!value) return 'Tracking status updates appear on the live map.';
+  if (!value) return t('students.trackingStatusDefault');
 
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
-    return `Last update: ${value}`;
+    return t('students.lastUpdateRaw', { value });
   }
-  return `Last update: ${parsed.toLocaleString([], { hour: '2-digit', minute: '2-digit', hour12: true })}`;
+  const time = parsed.toLocaleString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+  return t('students.lastUpdateTime', { time });
 }
 
 function hasTrackableData(student: StudentListItem) {

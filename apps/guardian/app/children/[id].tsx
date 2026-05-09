@@ -10,10 +10,11 @@ import {
   GraduationCap,
   IdCard,
   MapPin,
-  Phone,
   Route,
   School,
+  Star,
 } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -26,18 +27,25 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 import { useAttendanceByStudent } from '@/src/hooks/useAttendance';
 import { useBusCurrent, useBusHistory } from '@/src/hooks/useLocations';
 import { useStudentDetail } from '@/src/hooks/useStudents';
+import { useDriverFeedbackCreate } from '@/src/hooks/useDriverFeedback';
+import { useCanRateDriver } from '@/src/hooks/useDriverFeedbackEligibility';
 import type { BusLocationPoint } from '@/src/types/location';
 
 export default function ChildDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { t } = useTranslation();
   const q = useStudentDetail(String(id ?? ''));
   const student = (q.data?.student ?? {}) as Record<string, unknown>;
   const busId = String(student.busId ?? student.bus_id ?? '');
+  const driverId = String(student.driver_id ?? student.driverId ?? '').trim() || null;
+  const driverName = String(student.driver_name ?? student.driverName ?? '').trim() || 'Driver';
   const current = useBusCurrent(busId, { refetchIntervalMs: 8_000 });
   const history = useBusHistory(busId, { limit: 6 });
   const attendance = useAttendanceByStudent(String(id ?? ''));
   const [tabValue, setTabValue] = React.useState('overview');
+  const rateDriver = useDriverFeedbackCreate();
+  const eligibility = useCanRateDriver(driverId);
 
   const iconColor = useThemeColor({}, 'icon');
   const borderColor = useThemeColor({}, 'border');
@@ -48,18 +56,18 @@ export default function ChildDetailScreen() {
   const emphasisBorder = useThemeColor({ light: '#bfdbfe', dark: '#1d4ed8' }, 'border');
   const emphasisBackground = useThemeColor({ light: '#eff6ff', dark: '#0f1d34' }, 'background');
 
-  const studentName = String(student.full_name ?? 'Student');
-  const schoolName = String(student.school_name ?? student.schoolName ?? 'School not available');
+  const studentName = String(student.full_name ?? t('students.fallbackStudent'));
+  const schoolName = String(student.school_name ?? student.schoolName ?? t('childDetail.schoolNotAvailable'));
   const studentGrade = String(student.grade ?? '-');
   const studentCode = String(student.student_id ?? student.studentId ?? student.id ?? id ?? '-');
-  const routeName = String(student.route_name ?? 'Not assigned');
+  const routeName = String(student.route_name ?? t('childDetail.notAssigned'));
 
   const homeLat = student.home_latitude;
   const homeLng = student.home_longitude;
   const hasHomeAddress = typeof homeLat === 'number' && typeof homeLng === 'number';
   const addressLabel = hasHomeAddress
-    ? `Home (${Number(homeLat).toFixed(4)}, ${Number(homeLng).toFixed(4)})`
-    : 'Default address not provided';
+    ? t('childDetail.homeCoords', { lat: Number(homeLat).toFixed(4), lng: Number(homeLng).toFixed(4) })
+    : t('childDetail.defaultAddressMissing');
 
   const timeline = React.useMemo(() => {
     const historyPoints = (history.data ?? []) as BusLocationPoint[];
@@ -72,19 +80,21 @@ export default function ChildDetailScreen() {
   }, [current.data, history.data]);
 
   const etaTimeLabel = React.useMemo(() => {
-    if (!current.data?.timestamp) return 'Unavailable';
+    if (!current.data?.timestamp) return t('childDetail.unavailable');
     const ts = new Date(String(current.data.timestamp));
-    if (Number.isNaN(ts.getTime())) return 'Unavailable';
+    if (Number.isNaN(ts.getTime())) return t('childDetail.unavailable');
     return new Date(ts.getTime() + 5 * 60 * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  }, [current.data?.timestamp]);
+  }, [current.data?.timestamp, t]);
 
   const attendanceSummary = React.useMemo(() => {
-    const events = (attendance.data ?? []) as Array<Record<string, unknown>>;
+    const events = (attendance.data ?? []) as Record<string, unknown>[];
     const latest = events
       .map((item) => ({ type: String(item.type ?? '-'), ts: String(item.timestamp ?? item.createdAt ?? '') }))
       .sort((a, b) => b.ts.localeCompare(a.ts))[0];
-    return latest ? `${latest.type} at ${formatTimestamp(latest.ts)}` : 'No attendance events yet';
-  }, [attendance.data]);
+    return latest
+      ? t('attendance.summary', { type: latest.type, time: formatTimestamp(latest.ts, t) })
+      : t('attendance.noEventsYet');
+  }, [attendance.data, t]);
 
   const isRefreshing = q.isRefetching || current.isRefetching || history.isRefetching || attendance.isRefetching;
   const handleRefresh = React.useCallback(() => {
@@ -94,18 +104,63 @@ export default function ChildDetailScreen() {
       void history.refetch();
     }
     void attendance.refetch();
-  }, [attendance, busId, current, history, q]);
+    if (driverId) void eligibility.refetch();
+  }, [attendance, busId, current, history, q, driverId, eligibility]);
+
+  const handleRateDriver = React.useCallback(() => {
+    if (!driverId) {
+      Alert.alert(t('childDetail.driverUnavailableTitle'), t('childDetail.driverUnavailableBody'));
+      return;
+    }
+
+    if (eligibility.data && !eligibility.data.canRate) {
+      const when = eligibility.data.nextEligibleAt
+        ? new Date(eligibility.data.nextEligibleAt).toLocaleDateString()
+        : 'later';
+      Alert.alert(t('childDetail.ratingAvailableLaterTitle'), t('childDetail.ratingAvailableLaterBody', { driverName, when }));
+      return;
+    }
+
+    const submit = (rating: number) => {
+      rateDriver.mutate(
+        { driver_id: String(driverId), rating },
+        {
+          onSuccess: () => {
+            Alert.alert(t('childDetail.thanksTitle'), t('childDetail.thanksBody', { driverName }));
+            void eligibility.refetch();
+          },
+          onError: (err: any) => {
+            const msg = err?.message ?? err?.response?.data?.message ?? t('childDetail.submitFailed');
+            Alert.alert(t('childDetail.couldNotSubmitTitle'), String(msg));
+            void eligibility.refetch();
+          },
+        }
+      );
+    };
+
+    Alert.alert(t('childDetail.ratePromptTitle', { driverName }), t('childDetail.ratePromptBody'), [
+      { text: '1', onPress: () => submit(1) },
+      { text: '2', onPress: () => submit(2) },
+      { text: '3', onPress: () => submit(3) },
+      { text: '4', onPress: () => submit(4) },
+      { text: '5', onPress: () => submit(5) },
+      { text: t('common.cancel'), style: 'cancel' },
+    ]);
+  }, [driverId, driverName, eligibility, rateDriver, t]);
 
   return (
     <ThemedView style={styles.container}>
       <Stack.Screen
         options={{
-          title: studentName && studentName !== 'Student' ? studentName : 'Student Details',
+          title:
+            studentName && studentName !== t('students.fallbackStudent')
+              ? studentName
+              : t('childDetail.screenTitleDefault'),
         }}
       />
 
-      {q.isLoading ? <ThemedText>Loading…</ThemedText> : null}
-      {q.error ? <ThemedText style={[styles.errorText, { color: errorColor }]}>{(q.error as any)?.message ?? 'Failed'}</ThemedText> : null}
+      {q.isLoading ? <ThemedText>{t('childDetail.loadingStudent')}</ThemedText> : null}
+      {q.error ? <ThemedText style={[styles.errorText, { color: errorColor }]}>{(q.error as any)?.message ?? t('childDetail.failedGeneric')}</ThemedText> : null}
 
       {q.data ? (
         <Tabs value={tabValue} onValueChange={setTabValue} style={styles.tabsRoot}>
@@ -127,7 +182,7 @@ export default function ChildDetailScreen() {
                 <CardContent style={styles.heroBody}>
                   <View style={styles.heroText}>
                     <Badge variant="outline">
-                      <ThemedText>Student Profile</ThemedText>
+                      <ThemedText>{t('childDetail.studentProfile')}</ThemedText>
                     </Badge>
                     <ThemedText type="defaultSemiBold" style={styles.studentName}>
                       {studentName}
@@ -144,12 +199,12 @@ export default function ChildDetailScreen() {
               </Card>
 
               <View style={styles.kpiGrid}>
-                <KpiCard icon={<BusFront color={iconColor} size={16} />} label="Bus" value={busId || 'Unassigned'} borderColor={borderColor} />
-                <KpiCard icon={<Clock3 color={iconColor} size={16} />} label="ETA" value={etaTimeLabel} borderColor={borderColor} />
-                <KpiCard icon={<Route color={iconColor} size={16} />} label="Route" value={routeName} borderColor={borderColor} />
+                <KpiCard icon={<BusFront color={iconColor} size={16} />} label={t('childDetail.kpiBus')} value={busId || t('childDetail.unassigned')} borderColor={borderColor} />
+                <KpiCard icon={<Clock3 color={iconColor} size={16} />} label={t('childDetail.kpiEta')} value={etaTimeLabel} borderColor={borderColor} />
+                <KpiCard icon={<Route color={iconColor} size={16} />} label={t('childDetail.kpiRoute')} value={routeName} borderColor={borderColor} />
                 <KpiCard
                   icon={<CalendarMinus2 color={iconColor} size={16} />}
-                  label="Attendance"
+                  label={t('childDetail.kpiAttendance')}
                   value={attendanceSummary.slice(0, 24)}
                   borderColor={borderColor}
                 />
@@ -157,36 +212,34 @@ export default function ChildDetailScreen() {
 
               <Card style={{ borderColor, backgroundColor: cardBackground }}>
                 <CardHeader>
-                  <CardTitle>Quick Actions</CardTitle>
+                  <CardTitle>{t('childDetail.quickActions')}</CardTitle>
                 </CardHeader>
                 <CardContent style={styles.quickActions}>
                   <ActionRow
                     icon={<MapPin color={iconColor} size={18} />}
-                    title="View Live Map"
+                    title={t('childDetail.viewLiveMap')}
                     onPress={() => router.push(`/children/${id}/tracking` as any)}
                     borderColor={borderColor}
                   />
                   <ActionRow
                     icon={<CalendarMinus2 color={iconColor} size={18} />}
-                    title="Mark Absence"
+                    title={t('childDetail.markAbsence')}
                     onPress={() => router.push(`/children/${id}/attendance` as any)}
                     borderColor={borderColor}
                   />
                   <ActionRow
-                    icon={<Phone color={iconColor} size={18} />}
-                    title="Call Driver"
-                    onPress={async () => {
-                      if (!busId) {
-                        Alert.alert('Driver unavailable', 'No bus is currently assigned to this student.');
-                        return;
-                      }
-                      await Linking.openURL('tel:+10000000000');
-                    }}
+                    icon={<Star color={iconColor} size={18} />}
+                    title={
+                      eligibility.data && !eligibility.data.canRate
+                        ? t('childDetail.rateDriverLater')
+                        : t('childDetail.rateDriver')
+                    }
+                    onPress={handleRateDriver}
                     borderColor={borderColor}
                   />
                   <ActionRow
                     icon={<CircleHelp color={iconColor} size={18} />}
-                    title="Help Desk"
+                    title={t('childDetail.helpDesk')}
                     onPress={() => router.push('/modals/helpdesk' as any)}
                     borderColor={borderColor}
                   />
@@ -195,40 +248,40 @@ export default function ChildDetailScreen() {
 
               <Card style={{ borderColor, backgroundColor: cardBackground }}>
                 <CardHeader>
-                  <CardTitle>Student Information</CardTitle>
+                  <CardTitle>{t('childDetail.studentInformation')}</CardTitle>
                 </CardHeader>
                 <CardContent style={styles.detailsGrid}>
-                  <InfoTile icon={<IdCard color={iconColor} size={14} />} label="Student ID" value={studentCode} borderColor={borderColor} />
-                  <InfoTile icon={<GraduationCap color={iconColor} size={14} />} label="Grade" value={studentGrade} borderColor={borderColor} />
+                  <InfoTile icon={<IdCard color={iconColor} size={14} />} label={t('childDetail.studentId')} value={studentCode} borderColor={borderColor} />
+                  <InfoTile icon={<GraduationCap color={iconColor} size={14} />} label={t('childDetail.grade')} value={studentGrade} borderColor={borderColor} />
                   <InfoTile
                     icon={<School color={iconColor} size={14} />}
-                    label="Roll Number"
+                    label={t('childDetail.rollNumber')}
                     value={String(student.roll_number ?? '—')}
                     borderColor={borderColor}
                   />
-                  <InfoTile icon={<Route color={iconColor} size={14} />} label="Section" value={String(student.section ?? '—')} borderColor={borderColor} />
+                  <InfoTile icon={<Route color={iconColor} size={14} />} label={t('childDetail.section')} value={String(student.section ?? '—')} borderColor={borderColor} />
                 </CardContent>
               </Card>
 
               <Card style={{ borderColor, backgroundColor: cardBackground }}>
                 <CardHeader>
-                  <CardTitle>Location Snapshot</CardTitle>
+                  <CardTitle>{t('childDetail.locationSnapshot')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Open default address"
+                    accessibilityLabel={t('childDetail.openDefaultAddress')}
                     style={[styles.addressRow, { borderColor }]}
                     onPress={async () => {
                       if (hasHomeAddress) {
                         await Linking.openURL(`https://maps.google.com/?q=${homeLat},${homeLng}`);
                         return;
                       }
-                      Alert.alert('Address unavailable', 'No default address is currently set for this student.');
+                      Alert.alert(t('childDetail.addressUnavailableTitle'), t('childDetail.addressUnavailableBody'));
                     }}>
                     <View style={styles.addressTextArea}>
                       <Badge variant="outline">
-                        <ThemedText>Default Address</ThemedText>
+                        <ThemedText>{t('childDetail.defaultAddress')}</ThemedText>
                       </Badge>
                       <ThemedText style={styles.addressText}>{addressLabel}</ThemedText>
                     </View>
@@ -246,17 +299,17 @@ export default function ChildDetailScreen() {
               refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}>
               <Card style={{ borderColor, backgroundColor: cardBackground }}>
                 <CardHeader style={styles.timelineTitleRow}>
-                  <CardTitle>Route Progress</CardTitle>
+                  <CardTitle>{t('childDetail.routeProgress')}</CardTitle>
                   <Badge variant="secondary">
-                    <ThemedText>{busId ? `Bus ${busId}` : 'No bus assigned'}</ThemedText>
+                    <ThemedText>{busId ? t('childDetail.busLabel', { busId }) : t('childDetail.noBusAssigned')}</ThemedText>
                   </Badge>
                 </CardHeader>
                 <CardContent style={styles.timelineContent}>
                   <Progress value={timelineProgress(timeline)} />
-                  {history.isLoading || current.isLoading ? <ThemedText>Loading route…</ThemedText> : null}
+                  {history.isLoading || current.isLoading ? <ThemedText>{t('childDetail.loadingRoute')}</ThemedText> : null}
                   {history.error || current.error ? (
                     <ThemedText style={[styles.errorText, { color: errorColor }]}>
-                      {((history.error ?? current.error) as any)?.message ?? 'Failed to load route data'}
+                      {((history.error ?? current.error) as any)?.message ?? t('childDetail.failedRouteData')}
                     </ThemedText>
                   ) : null}
                   {timeline.map((point, idx) => (
@@ -269,14 +322,14 @@ export default function ChildDetailScreen() {
                         <View style={styles.rowTitle}>
                           <BusFront color={iconColor} size={14} />
                           <ThemedText type="defaultSemiBold">
-                            Stop {idx + 1}: {formatStopLabel(point)}
+                            {t('childDetail.stopLabel', { index: idx + 1, coords: formatStopLabel(point) })}
                           </ThemedText>
                         </View>
-                        <ThemedText style={{ color: mutedText }}>{formatTimestamp(point.timestamp)}</ThemedText>
+                        <ThemedText style={{ color: mutedText }}>{formatTimestamp(point.timestamp, t)}</ThemedText>
                       </View>
                     </View>
                   ))}
-                  {timeline.length === 0 && !history.isLoading && !current.isLoading ? <ThemedText>No route points available yet.</ThemedText> : null}
+                  {timeline.length === 0 && !history.isLoading && !current.isLoading ? <ThemedText>{t('childDetail.noRoutePoints')}</ThemedText> : null}
                 </CardContent>
               </Card>
             </ScrollView>
@@ -413,8 +466,8 @@ function formatStopLabel(point: BusLocationPoint) {
   return `${Number(point.latitude).toFixed(4)}, ${Number(point.longitude).toFixed(4)}`;
 }
 
-function formatTimestamp(value: string | undefined) {
-  if (!value) return 'Time unavailable';
+function formatTimestamp(value: string | undefined, t: (key: string, options?: any) => string) {
+  if (!value) return t('childDetail.timeUnavailable');
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
   return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });

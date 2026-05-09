@@ -13,6 +13,7 @@ import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { registerPushTokenOncePerBoot } from '@/src/utils/push/registerPushToken';
 import { PortalHost } from '@rn-primitives/portal';
+import { initI18n } from '@/src/i18n';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -64,6 +65,10 @@ function AuthGate() {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const activeTheme = colorScheme === 'dark' ? 'dark' : 'light';
+
+  useEffect(() => {
+    void initI18n();
+  }, []);
 
   return (
     <AppProviders>

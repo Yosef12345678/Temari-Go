@@ -9,5 +9,6 @@ export const queryKeys = {
   paymentsByParent: (parentId: string, filters?: unknown) => ['paymentsByParent', parentId, filters ?? {}] as const,
   paymentsByStudent: (studentId: string, filters?: unknown) => ['paymentsByStudent', studentId, filters ?? {}] as const,
   notifications: (filters?: unknown) => ['notifications', filters ?? {}] as const,
+  driverFeedbackEligibility: (driverId: string) => ['driverFeedbackEligibility', driverId] as const,
 } as const;
 

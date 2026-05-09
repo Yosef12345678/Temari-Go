@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { db } from '../../models';
 import { GeofenceService } from '../services/geofence.service';
 
-const { Student, User, RFIDCard, Attendance, Payment, RouteAssignment, Route } = db;
+const { Student, User, RFIDCard, Attendance, Payment, RouteAssignment, Route, Bus } = db;
 
 /**
  * Helper: check if current user is admin
@@ -229,6 +229,30 @@ export const getStudentById = async (req: Request, res: Response, next: NextFunc
 					model: Payment,
 					attributes: ['id', 'amount', 'status', 'timestamp'],
 				},
+				{
+					model: RouteAssignment,
+					required: false,
+					attributes: ['route_id', 'student_id', 'pickup_order', 'pickup_latitude', 'pickup_longitude'],
+					include: [
+						{
+							model: Route,
+							attributes: ['id', 'name', 'bus_id'],
+							include: [
+								{
+									model: Bus,
+									attributes: ['id', 'bus_number', 'driver_id'],
+									include: [
+										{
+											model: User,
+											as: 'driver',
+											attributes: ['id', 'name', 'phone_number'],
+										},
+									],
+								},
+							],
+						},
+					],
+				},
 			],
 		});
 
@@ -265,10 +289,22 @@ export const getStudentById = async (req: Request, res: Response, next: NextFunc
 			order: [['timestamp', 'DESC']],
 		});
 
+		const routeAssignment = Array.isArray((student as any).routeAssignments) ? (student as any).routeAssignments[0] : null;
+		const route = routeAssignment?.route ?? null;
+		const bus = route?.bus ?? null;
+		const driver = bus?.driver ?? null;
+
+		const studentJson = student.toJSON() as any;
+		studentJson.busId = bus?.id ?? studentJson.busId ?? studentJson.bus_id ?? null;
+		studentJson.route_name = route?.name ?? studentJson.route_name ?? null;
+		studentJson.driver_id = driver?.id ?? bus?.driver_id ?? null;
+		studentJson.driver_name = driver?.name ?? null;
+		studentJson.driver_phone_number = driver?.phone_number ?? null;
+
 		return res.status(200).json({
 			success: true,
 			data: {
-				student,
+				student: studentJson,
 				attendanceSummary: {
 					totalRecords: totalAttendance,
 					lastAttendance,

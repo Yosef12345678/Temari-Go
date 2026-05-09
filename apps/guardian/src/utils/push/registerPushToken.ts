@@ -15,15 +15,24 @@ function notificationsAccessAllowed(perms: unknown): boolean {
   return p.granted === true;
 }
 
-async function getBestEffortPushToken(): Promise<string | null> {
+async function ensureNotificationPermission(): Promise<boolean> {
   // Dynamic import: loading `expo-notifications` in Expo Go throws at module eval time.
   const Notifications = await import('expo-notifications');
 
   const perms = await Notifications.getPermissionsAsync();
   if (!notificationsAccessAllowed(perms)) {
     const req = await Notifications.requestPermissionsAsync();
-    if (!notificationsAccessAllowed(req)) return null;
+    if (!notificationsAccessAllowed(req)) return false;
   }
+  return true;
+}
+
+async function getBestEffortPushToken(): Promise<string | null> {
+  // Dynamic import: loading `expo-notifications` in Expo Go throws at module eval time.
+  const Notifications = await import('expo-notifications');
+
+  const allowed = await ensureNotificationPermission();
+  if (!allowed) return null;
 
   try {
     if (Platform.OS === 'android') {
@@ -44,7 +53,7 @@ async function getBestEffortPushToken(): Promise<string | null> {
 
 /**
  * Best-effort push token registration. Safe to call multiple times; only runs once per app boot.
- * Skips entirely in Expo Go (remote push is not supported there).
+ * In Expo Go, still requests notification permission but skips remote token registration.
  */
 export async function registerPushTokenOncePerBoot(): Promise<void> {
   if (hasAttemptedThisBoot) {
@@ -53,8 +62,20 @@ export async function registerPushTokenOncePerBoot(): Promise<void> {
   }
   hasAttemptedThisBoot = true;
 
+  // First, ask for permission (if needed). This is safe in Expo Go and is what triggers the OS prompt.
+  try {
+    const allowed = await ensureNotificationPermission();
+    if (!allowed) {
+      if (__DEV__) console.warn('[push] permission denied');
+      return;
+    }
+  } catch (error) {
+    if (__DEV__) console.warn('[push] permission check/request failed', error);
+    return;
+  }
+
   if (Constants.appOwnership === 'expo') {
-    if (__DEV__) console.log('[push] skipped: Expo Go does not support remote push registration');
+    if (__DEV__) console.log('[push] Expo Go: permission handled, skipping remote push token registration');
     return;
   }
 

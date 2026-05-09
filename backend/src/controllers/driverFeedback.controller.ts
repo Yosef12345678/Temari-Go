@@ -7,7 +7,16 @@ import { DriverFeedbackService, DriverFeedbackInput } from '../services/driverFe
  */
 export const submitDriverFeedback = async (req: Request, res: Response) => {
 	try {
-		const { driver_id, parent_id, rating, comment } = req.body;
+		const { driver_id, rating, comment } = req.body;
+
+		if (!req.user || req.user.role !== 'parent') {
+			return res.status(401).json({
+				success: false,
+				code: 'UNAUTHORIZED',
+				message: 'Access denied.',
+			});
+		}
+		const parentId = Number(req.user.id);
 
 		// Validate required fields
 		if (!driver_id) {
@@ -15,14 +24,6 @@ export const submitDriverFeedback = async (req: Request, res: Response) => {
 				success: false,
 				code: 'MISSING_DRIVER_ID',
 				message: 'driver_id is required.',
-			});
-		}
-
-		if (!parent_id) {
-			return res.status(400).json({
-				success: false,
-				code: 'MISSING_PARENT_ID',
-				message: 'parent_id is required.',
 			});
 		}
 
@@ -46,7 +47,7 @@ export const submitDriverFeedback = async (req: Request, res: Response) => {
 		// Prepare input
 		const input: DriverFeedbackInput = {
 			driver_id: Number(driver_id),
-			parent_id: Number(parent_id),
+			parent_id: parentId,
 			rating: Number(rating),
 			comment: comment || undefined,
 		};
@@ -74,6 +75,50 @@ export const submitDriverFeedback = async (req: Request, res: Response) => {
 			success: false,
 			code: 'INTERNAL_ERROR',
 			message: 'An error occurred while submitting driver feedback.',
+		});
+	}
+};
+
+/**
+ * Check if parent can rate a driver (30-day cooldown)
+ * GET /api/driver-feedback/can-rate/:driverId
+ */
+export const canRateDriver = async (req: Request, res: Response) => {
+	try {
+		if (!req.user || req.user.role !== 'parent') {
+			return res.status(401).json({
+				success: false,
+				code: 'UNAUTHORIZED',
+				message: 'Access denied.',
+			});
+		}
+
+		const driverId = Number(req.params.driverId);
+		if (Number.isNaN(driverId)) {
+			return res.status(400).json({
+				success: false,
+				code: 'INVALID_DRIVER_ID',
+				message: 'driverId must be a valid number.',
+			});
+		}
+
+		const parentId = Number(req.user.id);
+		const eligibility = await DriverFeedbackService.getRatingEligibility(parentId, driverId);
+
+		return res.status(200).json({
+			success: true,
+			data: {
+				canRate: eligibility.canRate,
+				lastRatedAt: eligibility.lastRatedAt ? eligibility.lastRatedAt.toISOString() : null,
+				nextEligibleAt: eligibility.nextEligibleAt ? eligibility.nextEligibleAt.toISOString() : null,
+			},
+		});
+	} catch (error: any) {
+		console.error('Driver feedback eligibility error:', error);
+		return res.status(500).json({
+			success: false,
+			code: 'INTERNAL_ERROR',
+			message: 'An error occurred while checking eligibility.',
 		});
 	}
 };

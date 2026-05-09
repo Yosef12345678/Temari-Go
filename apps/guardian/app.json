@@ -13,6 +13,7 @@
     "android": {
       "package": "com.davie10.guardian",
       "googleServicesFile": "./google-services.json",
+      "permissions": ["POST_NOTIFICATIONS"],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -27,6 +28,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-notifications",
       [
         "expo-splash-screen",
         {
@@ -49,7 +51,7 @@
       "reactCompiler": true
     },
     "extra": {
-      "API_BASE_URL": "http://192.168.1.8:4000",
+      "API_BASE_URL": "http://10.5.223.201:4000",
       "router": {},
       "eas": {
         "projectId": "92cc7b30-1e8a-4763-ad89-230d342cc7df"

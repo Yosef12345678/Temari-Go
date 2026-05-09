@@ -16,6 +16,31 @@ export interface DriverFeedbackResult {
 }
 
 export class DriverFeedbackService {
+	private static readonly COOLDOWN_DAYS = 30;
+
+	private static cooldownMs(): number {
+		return this.COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
+	}
+
+	static async getRatingEligibility(parentId: number, driverId: number): Promise<{
+		canRate: boolean;
+		lastRatedAt: Date | null;
+		nextEligibleAt: Date | null;
+	}> {
+		const latest = await DriverFeedback.findOne({
+			where: { parent_id: parentId, driver_id: driverId },
+			order: [['timestamp', 'DESC']],
+		});
+
+		const lastRatedAt = latest?.timestamp ? new Date(String(latest.timestamp)) : null;
+		if (!lastRatedAt || Number.isNaN(lastRatedAt.getTime())) {
+			return { canRate: true, lastRatedAt: null, nextEligibleAt: null };
+		}
+
+		const nextEligibleAt = new Date(lastRatedAt.getTime() + this.cooldownMs());
+		return { canRate: Date.now() >= nextEligibleAt.getTime(), lastRatedAt, nextEligibleAt };
+	}
+
 	/**
 	 * Submit driver feedback from parent
 	 * Validates that parent has a student assigned to the driver's bus
@@ -90,6 +115,20 @@ export class DriverFeedbackService {
 
 		// 4. Validate that parent has a student assigned to the driver's bus
 		await this.validateParentStudentAssignment(input.parent_id, input.driver_id);
+
+		// 4b. Enforce "once per month" rating cooldown
+		const eligibility = await this.getRatingEligibility(input.parent_id, input.driver_id);
+		if (!eligibility.canRate) {
+			throw {
+				status: 429,
+				code: 'RATING_COOLDOWN',
+				message: `You can rate this driver again after ${eligibility.nextEligibleAt?.toISOString() ?? 'later'}.`,
+				data: {
+					lastRatedAt: eligibility.lastRatedAt?.toISOString() ?? null,
+					nextEligibleAt: eligibility.nextEligibleAt?.toISOString() ?? null,
+				},
+			};
+		}
 
 		// 5. Create feedback record
 		const feedback = await DriverFeedback.create({
