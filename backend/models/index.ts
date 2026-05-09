@@ -19,6 +19,7 @@ import { Route } from './route.model';
 import { RouteAssignment } from './routeAssignment.model';
 import { School } from './school.model';
 import { Device } from './device.model';
+import { ParentAbsence } from './parentAbsence.model';
 
 const env = process.env.NODE_ENV || 'development';
 const dbConfig = config[env as 'development' | 'production'];
@@ -45,6 +46,7 @@ export const sequelize = new Sequelize(dbConfig.url, {
     RouteAssignment,
     School,
     Device,
+    ParentAbsence,
   ],
   logging: false,
   define: {
@@ -74,4 +76,5 @@ export const db = {
   RouteAssignment,
   School,
   Device,
+  ParentAbsence,
 };

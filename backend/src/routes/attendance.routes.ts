@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { scanAttendance, syncAttendance, manualAttendance, getStudentAttendance, getBusAttendance, getAllAttendance } from '../controllers/attendance.controller';
+import { scanAttendance, syncAttendance, manualAttendance, getStudentAttendance, getBusAttendance, getAllAttendance, reportParentAbsence, getDriverAbsences } from '../controllers/attendance.controller';
 import authMiddleware from '../middlewares/auth.middleware';
 import { authorize } from '../middlewares/role.middleware';
 import deviceAuthMiddleware from '../middlewares/deviceAuth.middleware';
@@ -12,6 +12,8 @@ router.post('/sync', deviceAuthMiddleware, syncAttendance);
 
 // Protected endpoints for drivers and users
 router.post('/manual', authMiddleware, manualAttendance);
+router.post('/absence', authMiddleware, reportParentAbsence);
+router.get('/driver/absences', authMiddleware, authorize('driver', 'admin'), getDriverAbsences);
 router.get('/', authMiddleware, getAllAttendance);
 router.get('/student/:studentId', authMiddleware, getStudentAttendance);
 router.get('/bus/:busId', authMiddleware, authorize('driver', 'admin'), getBusAttendance);

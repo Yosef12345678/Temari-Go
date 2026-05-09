@@ -15,3 +15,15 @@ export async function listAttendanceByStudent(
   return unwrapData(res);
 }
 
+export async function reportStudentAbsence(input: {
+  student_id: number;
+  absence_date: string;
+  reason?: string;
+}): Promise<unknown> {
+  const res = await request<ApiEnvelope<unknown>>('POST', '/attendance/absence', {
+    auth: true,
+    body: input,
+  });
+  return unwrapData(res);
+}
+

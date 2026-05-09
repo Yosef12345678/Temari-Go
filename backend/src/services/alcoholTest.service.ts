@@ -2,6 +2,7 @@ import { db } from '../../models';
 const { AlcoholTest, Bus, User, Role } = db;
 import { Op } from 'sequelize';
 import { NotificationService } from './notification.service';
+import { publishRealtimeEvent } from '../realtime/realtime.events';
 
 export interface AlcoholTestInput {
 	bus_id?: number;
@@ -141,7 +142,7 @@ export class AlcoholTestService {
 			? `Alcohol test passed. Level: ${input.alcohol_level.toFixed(3)} mg/L (threshold: ${ALCOHOL_THRESHOLD} mg/L)`
 			: `ALERT: Alcohol test failed. Level: ${input.alcohol_level.toFixed(3)} mg/L exceeds threshold of ${ALCOHOL_THRESHOLD} mg/L. Admin has been notified.`;
 
-		return {
+		const result = {
 			success: true,
 			testId: alcoholTest.id,
 			passed: passed,
@@ -152,6 +153,15 @@ export class AlcoholTestService {
 			bus_number: bus.bus_number,
 			message: message,
 		};
+		publishRealtimeEvent('safety.alcohol_test', {
+			testId: alcoholTest.id,
+			busId: bus.id,
+			driverId: bus.driver_id,
+			passed,
+			alcoholLevel: input.alcohol_level,
+			threshold: ALCOHOL_THRESHOLD,
+		});
+		return result;
 	}
 
 	/**

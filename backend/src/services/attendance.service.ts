@@ -1,9 +1,10 @@
 import { db } from '../../models';
-const { Attendance, RFIDCard, Student, Bus, Geofence, Route, RouteAssignment } = db;
+const { Attendance, RFIDCard, Student, Bus, Geofence, Route, RouteAssignment, ParentAbsence } = db;
 import type { Bus as BusModel } from '../../models/bus.model';
 import { Op } from 'sequelize';
 import { findMatchingGeofence, type GeofenceData } from '../utils/geofence';
 import { NotificationService } from './notification.service';
+import { publishRealtimeEvent } from '../realtime/realtime.events';
 
 export interface AttendanceScanInput {
 	rfid_tag: string;
@@ -40,7 +41,24 @@ export interface ManualAttendanceInput {
 	driverId: number;
 }
 
+export interface ParentAbsenceInput {
+	studentId: number;
+	parentId: number;
+	absenceDate: string;
+	reason?: string;
+}
+
 export class AttendanceService {
+	static async resolveAllowedBusIdsForUser(userId: number, role: string): Promise<number[] | null> {
+		if (role === 'admin') return null;
+		if (role !== 'driver') return [];
+		const buses = await Bus.findAll({
+			where: { driver_id: userId },
+			attributes: ['id'],
+		});
+		return buses.map((b) => Number(b.id));
+	}
+
 	/**
 	 * Process RFID scan and create attendance record
 	 */
@@ -205,7 +223,7 @@ export class AttendanceService {
 		}
 
 		// 7. Return result
-		return {
+		const result = {
 			success: true,
 			attendanceType,
 			studentId: student.id,
@@ -218,6 +236,14 @@ export class AttendanceService {
 				: undefined,
 			message: `Attendance recorded: ${student.full_name} ${attendanceType === 'boarding' ? 'boarded' : 'exited'} the bus`,
 		};
+		publishRealtimeEvent('attendance.scan', {
+			busId: bus.id,
+			studentId: student.id,
+			studentName: student.full_name,
+			type: attendanceType,
+			timestamp: new Date(input.timestamp || Date.now()).toISOString(),
+		});
+		return result;
 	}
 
 	/**
@@ -486,7 +512,7 @@ export class AttendanceService {
 			);
 		}
 
-		return {
+		const result = {
 			success: true,
 			attendanceType,
 			studentId: student.id,
@@ -499,6 +525,14 @@ export class AttendanceService {
 				: undefined,
 			message: `Manual attendance recorded: ${student.full_name} ${attendanceType === 'boarding' ? 'boarded' : 'exited'} the bus`,
 		};
+		publishRealtimeEvent('attendance.manual', {
+			busId: bus.id,
+			studentId: student.id,
+			studentName: student.full_name,
+			type: attendanceType,
+			timestamp: new Date(timestamp || Date.now()).toISOString(),
+		});
+		return result;
 	}
 
 	/**
@@ -507,9 +541,13 @@ export class AttendanceService {
 	static async getStudentAttendance(
 		studentId: number,
 		startDate?: Date,
-		endDate?: Date
+		endDate?: Date,
+		allowedBusIds?: number[] | null
 	) {
 		const where: any = { student_id: studentId };
+		if (Array.isArray(allowedBusIds)) {
+			where.bus_id = { [Op.in]: allowedBusIds.length > 0 ? allowedBusIds : [-1] };
+		}
 		if (startDate || endDate) {
 			where.timestamp = {};
 			if (startDate) where.timestamp[Op.gte] = startDate;
@@ -609,7 +647,51 @@ export class AttendanceService {
 			})
 			: 0;
 
-		return {
+		const expectedStudents = routeIds.length > 0
+			? await Student.findAll({
+				where: {
+					id: {
+						[Op.in]: await RouteAssignment.findAll({
+							where: { route_id: { [Op.in]: routeIds } },
+							attributes: ['student_id'],
+							raw: true,
+						}).then((rows: any[]) => rows.map((x) => Number(x.student_id))),
+					},
+				},
+				attributes: ['id', 'full_name', 'grade'],
+				order: [['full_name', 'ASC']],
+			})
+			: [];
+		const onboardSet = new Set(onboardStudentIds);
+		const absenceDate = targetDate.toISOString().split('T')[0];
+		const absences = await ParentAbsence.findAll({
+			where: {
+				absence_date: absenceDate,
+				student_id: { [Op.in]: expectedStudents.map((s) => s.id) },
+			},
+			attributes: ['student_id'],
+			raw: true,
+		});
+		const absentSet = new Set(absences.map((x: any) => Number(x.student_id)));
+		const startRef = routes[0]?.start_time ? new Date(routes[0].start_time as any) : new Date(targetDate);
+		const assignmentRows = routeIds.length > 0
+			? await RouteAssignment.findAll({
+				where: { route_id: { [Op.in]: routeIds } },
+				attributes: ['student_id', 'pickup_order'],
+				raw: true,
+			})
+			: [];
+		const assignmentMap = new Map<number, number>();
+		assignmentRows.forEach((r: any) => assignmentMap.set(Number(r.student_id), Number(r.pickup_order ?? 0)));
+		const now = new Date();
+		const missedPickups = expectedStudents.filter((s) => {
+			if (onboardSet.has(s.id) || absentSet.has(s.id)) return false;
+			const pickupOrder = assignmentMap.get(s.id) ?? 0;
+			const stopDeadline = new Date(startRef.getTime() + (pickupOrder * 7 + 10) * 60 * 1000);
+			return now.getTime() > stopDeadline.getTime();
+		});
+
+		const response = {
 			bus: {
 				id: bus.id,
 				bus_number: bus.bus_number,
@@ -618,7 +700,16 @@ export class AttendanceService {
 			statistics: {
 				totalAssignedStudents,
 				currentOnboardCount: onboardStudents.length,
+				missedPickupCount: missedPickups.length,
+				reportedAbsentCount: absentSet.size,
 			},
+			expectedStudents: expectedStudents.map((student) => ({
+				id: student.id,
+				full_name: student.full_name,
+				grade: student.grade,
+				boarded: onboardSet.has(student.id),
+				absent: absentSet.has(student.id),
+			})),
 			onboardStudents: onboardStudents.map(student => ({
 				id: student.id,
 				full_name: student.full_name,
@@ -639,6 +730,13 @@ export class AttendanceService {
 				} : null,
 			})),
 		};
+		if (missedPickups.length > 0) {
+			publishRealtimeEvent('attendance.missed_pickup', {
+				busId: bus.id,
+				missedPickupCount: missedPickups.length,
+			});
+		}
+		return response;
 	}
 
 	/**
@@ -652,6 +750,7 @@ export class AttendanceService {
 		type?: 'boarding' | 'exiting';
 		limit?: number;
 		offset?: number;
+		allowedBusIds?: number[] | null;
 	}) {
 		const where: any = {};
 
@@ -661,6 +760,13 @@ export class AttendanceService {
 
 		if (filters.busId) {
 			where.bus_id = filters.busId;
+		}
+		if (Array.isArray(filters.allowedBusIds)) {
+			where.bus_id = where.bus_id
+				? where.bus_id
+				: {
+					[Op.in]: filters.allowedBusIds.length > 0 ? filters.allowedBusIds : [-1],
+				};
 		}
 
 		if (filters.type) {
@@ -698,6 +804,99 @@ export class AttendanceService {
 			total: count,
 			attendances: rows,
 		};
+	}
+
+	static async reportParentAbsence(input: ParentAbsenceInput) {
+		const student = await Student.findByPk(input.studentId);
+		if (!student) {
+			throw { status: 404, code: 'STUDENT_NOT_FOUND', message: 'Student not found.' };
+		}
+		if (Number(student.parent_id) !== Number(input.parentId)) {
+			throw { status: 403, code: 'FORBIDDEN_PARENT', message: 'Student is not assigned to this parent.' };
+		}
+
+		const [absence] = await ParentAbsence.findOrCreate({
+			where: { student_id: input.studentId, absence_date: input.absenceDate },
+			defaults: {
+				student_id: input.studentId,
+				parent_id: input.parentId,
+				absence_date: input.absenceDate,
+				reason: input.reason ?? null,
+				status: 'reported',
+			},
+		});
+
+		const assignments = await RouteAssignment.findAll({
+			where: { student_id: input.studentId },
+			attributes: ['route_id'],
+			raw: true,
+		});
+		const routeIds = assignments.map((a: any) => Number(a.route_id));
+		const routes = routeIds.length > 0
+			? await Route.findAll({ where: { id: { [Op.in]: routeIds } }, attributes: ['id', 'bus_id'] })
+			: [];
+		const busIds = Array.from(new Set(routes.map((r: any) => Number(r.bus_id))));
+		const buses = busIds.length > 0
+			? await Bus.findAll({ where: { id: { [Op.in]: busIds } }, attributes: ['id', 'driver_id', 'bus_number'] })
+			: [];
+		for (const bus of buses as any[]) {
+			if (!bus.driver_id) continue;
+			await NotificationService.sendNotification({
+				userId: Number(bus.driver_id),
+				type: 'parent_absence',
+				message: `${student.full_name} was reported absent for ${input.absenceDate}.`,
+				data: {
+					studentId: student.id,
+					studentName: student.full_name,
+					busId: bus.id,
+					busNumber: bus.bus_number,
+					absenceDate: input.absenceDate,
+					reason: input.reason ?? null,
+				},
+			});
+		}
+		publishRealtimeEvent('notification.created', {
+			type: 'parent_absence',
+			studentId: student.id,
+			absenceDate: input.absenceDate,
+		});
+		return absence;
+	}
+
+	static async getDriverAbsences(driverId: number, date?: string) {
+		const targetDate = date || new Date().toISOString().split('T')[0];
+		const buses = await Bus.findAll({ where: { driver_id: driverId }, attributes: ['id'] });
+		const busIds = buses.map((b: any) => Number(b.id));
+		if (busIds.length === 0) return [];
+		const routes = await Route.findAll({ where: { bus_id: { [Op.in]: busIds } }, attributes: ['id', 'bus_id'] });
+		const routeToBus = new Map<number, number>();
+		routes.forEach((r: any) => routeToBus.set(Number(r.id), Number(r.bus_id)));
+		const routeIds = Array.from(routeToBus.keys());
+		if (routeIds.length === 0) return [];
+		const assignments = await RouteAssignment.findAll({
+			where: { route_id: { [Op.in]: routeIds } },
+			attributes: ['student_id', 'route_id'],
+			raw: true,
+		});
+		const studentToBus = new Map<number, number>();
+		assignments.forEach((a: any) => studentToBus.set(Number(a.student_id), Number(routeToBus.get(Number(a.route_id)))));
+		const studentIds = Array.from(studentToBus.keys());
+		if (studentIds.length === 0) return [];
+		const absences = await ParentAbsence.findAll({
+			where: { absence_date: targetDate, student_id: { [Op.in]: studentIds } },
+			include: [{ model: Student, attributes: ['id', 'full_name', 'grade'] }],
+			order: [['created_at', 'DESC']],
+		});
+		return absences.map((a: any) => ({
+			id: a.id,
+			student_id: a.student_id,
+			student_name: a.student?.full_name ?? null,
+			grade: a.student?.grade ?? null,
+			bus_id: studentToBus.get(Number(a.student_id)) ?? null,
+			absence_date: a.absence_date,
+			reason: a.reason,
+			status: a.status,
+		}));
 	}
 }
 

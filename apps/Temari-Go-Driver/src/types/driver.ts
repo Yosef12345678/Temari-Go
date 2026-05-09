@@ -40,4 +40,15 @@ export type DriverJob = {
     bus_number: string;
   };
   routeAssignments?: DriverJobAssignment[];
+  route_stops_eta?: {
+    assignment_id: number;
+    student_id: number;
+    pickup_order?: number | null;
+    eta_minutes: number;
+    eta_at: string;
+    student_name?: string | null;
+    pickup_latitude?: number | null;
+    pickup_longitude?: number | null;
+  }[];
+  traffic_multiplier?: number;
 };

@@ -291,10 +291,16 @@ export const getStudentAttendance = async (req: Request, res: Response) => {
 		const start = startDate ? new Date(startDate as string) : undefined;
 		const end = endDate ? new Date(endDate as string) : undefined;
 
+		const allowedBusIds = await AttendanceService.resolveAllowedBusIdsForUser(
+			Number(req.user?.id),
+			req.user?.role ?? ''
+		);
+
 		const attendance = await AttendanceService.getStudentAttendance(
 			Number(studentId),
 			start,
-			end
+			end,
+			allowedBusIds
 		);
 
 		return res.status(200).json({
@@ -319,6 +325,18 @@ export const getBusAttendance = async (req: Request, res: Response) => {
 	try {
 		const { busId } = req.params;
 		const { date } = req.query;
+
+		const allowedBusIds = await AttendanceService.resolveAllowedBusIdsForUser(
+			Number(req.user?.id),
+			req.user?.role ?? ''
+		);
+		if (Array.isArray(allowedBusIds) && !allowedBusIds.includes(Number(busId))) {
+			return res.status(403).json({
+				success: false,
+				code: 'FORBIDDEN_BUS',
+				message: 'You are not allowed to access this bus attendance.',
+			});
+		}
 
 		const targetDate = date ? new Date(date as string) : undefined;
 		const result = await AttendanceService.getBusAttendance(Number(busId), targetDate);
@@ -353,6 +371,11 @@ export const getAllAttendance = async (req: Request, res: Response) => {
 			offset,
 		} = req.query;
 
+		const allowedBusIds = await AttendanceService.resolveAllowedBusIdsForUser(
+			Number(req.user?.id),
+			req.user?.role ?? ''
+		);
+
 		const filters: any = {};
 		if (studentId) filters.studentId = Number(studentId);
 		if (busId) filters.busId = Number(busId);
@@ -361,6 +384,7 @@ export const getAllAttendance = async (req: Request, res: Response) => {
 		if (type) filters.type = type as 'boarding' | 'exiting';
 		if (limit) filters.limit = Number(limit);
 		if (offset) filters.offset = Number(offset);
+		filters.allowedBusIds = allowedBusIds;
 
 		const result = await AttendanceService.getAllAttendance(filters);
 
@@ -375,6 +399,46 @@ export const getAllAttendance = async (req: Request, res: Response) => {
 			code: 'INTERNAL_ERROR',
 			message: 'An error occurred while fetching attendance records.',
 		});
+	}
+};
+
+export const reportParentAbsence = async (req: Request, res: Response) => {
+	try {
+		if (!req.user) {
+			return res.status(401).json({ success: false, code: 'UNAUTHORIZED', message: 'Access denied.' });
+		}
+		if (req.user.role !== 'parent' && req.user.role !== 'admin') {
+			return res.status(403).json({ success: false, code: 'FORBIDDEN_ROLE', message: 'Only parents can report absences.' });
+		}
+		const { student_id, absence_date, reason, parent_id } = req.body;
+		if (!student_id || !absence_date) {
+			return res.status(400).json({ success: false, code: 'MISSING_FIELDS', message: 'student_id and absence_date are required.' });
+		}
+		const result = await AttendanceService.reportParentAbsence({
+			studentId: Number(student_id),
+			parentId: req.user.role === 'admin' && parent_id ? Number(parent_id) : Number(req.user.id),
+			absenceDate: String(absence_date),
+			reason: typeof reason === 'string' ? reason : undefined,
+		});
+		return res.status(201).json({ success: true, data: result });
+	} catch (error: any) {
+		if (error.status && error.code) {
+			return res.status(error.status).json({ success: false, code: error.code, message: error.message });
+		}
+		return res.status(500).json({ success: false, code: 'INTERNAL_ERROR', message: 'Failed to report absence.' });
+	}
+};
+
+export const getDriverAbsences = async (req: Request, res: Response) => {
+	try {
+		if (!req.user) {
+			return res.status(401).json({ success: false, code: 'UNAUTHORIZED', message: 'Access denied.' });
+		}
+		const driverId = req.user.role === 'admin' && req.query.driverId ? Number(req.query.driverId) : Number(req.user.id);
+		const data = await AttendanceService.getDriverAbsences(driverId, req.query.date as string | undefined);
+		return res.status(200).json({ success: true, data });
+	} catch {
+		return res.status(500).json({ success: false, code: 'INTERNAL_ERROR', message: 'Failed to fetch driver absences.' });
 	}
 };
 

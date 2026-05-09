@@ -1,6 +1,7 @@
 import { Op } from 'sequelize';
 
 import { db } from '../../models';
+import { publishRealtimeEvent } from '../realtime/realtime.events';
 
 const { Bus, Route, RouteAssignment, Student } = db;
 
@@ -13,6 +14,7 @@ export type DriverJobStatus =
   | 'cancelled';
 
 const ACTIVE_JOB_STATUSES: DriverJobStatus[] = ['assigned', 'accepted', 'arrived', 'picked_up'];
+const STOP_BASE_MINUTES = 6;
 
 const VALID_TRANSITIONS: Record<DriverJobStatus, DriverJobStatus[]> = {
   assigned: ['accepted', 'cancelled'],
@@ -53,6 +55,32 @@ async function getDriverBusIds(driverId: number): Promise<number[]> {
     attributes: ['id'],
   });
   return buses.map((bus: any) => Number(bus.id));
+}
+
+function withETAs(route: any) {
+  const json = route.toJSON();
+  const assignments = Array.isArray(json.routeAssignments) ? json.routeAssignments : [];
+  const sorted = [...assignments].sort((a, b) => (a.pickup_order ?? 0) - (b.pickup_order ?? 0));
+  let cumulativeMinutes = 8;
+  const stops = sorted.map((item: any) => {
+    cumulativeMinutes += STOP_BASE_MINUTES;
+    return {
+      assignment_id: item.id,
+      student_id: item.student_id,
+      pickup_order: item.pickup_order ?? null,
+      eta_minutes: cumulativeMinutes,
+      eta_at: new Date(Date.now() + cumulativeMinutes * 60 * 1000).toISOString(),
+      student_name: item.student?.full_name ?? null,
+      pickup_latitude: item.pickup_latitude ?? null,
+      pickup_longitude: item.pickup_longitude ?? null,
+    };
+  });
+
+  return {
+    ...json,
+    route_stops_eta: stops,
+    traffic_multiplier: 1.0,
+  };
 }
 
 export class DriverService {
@@ -130,7 +158,7 @@ export class DriverService {
       order: [['updated_at', 'DESC']],
     });
 
-    return routes.map((route: any) => route.toJSON());
+    return routes.map((route: any) => withETAs(route));
   }
 
   static async getJobForDriver(
@@ -190,7 +218,7 @@ export class DriverService {
       throw { status: 404, code: 'JOB_NOT_FOUND', message: 'Job not found for this driver.' };
     }
 
-    return route.toJSON();
+    return withETAs(route);
   }
 
   static async transitionJobStatus(
@@ -240,6 +268,13 @@ export class DriverService {
     }
 
     await route.update(updates);
-    return route.toJSON();
+    const output = withETAs(route);
+    publishRealtimeEvent('driver.job.updated', {
+      routeId: output.id,
+      status: output.lifecycle_status,
+      busId: output.bus_id,
+      updatedAt: output.updated_at ?? new Date().toISOString(),
+    });
+    return output;
   }
 }

@@ -3,6 +3,7 @@ const { Location, Bus, User, Role, AlcoholTest } = db;
 import { Op } from 'sequelize';
 import { NotificationService } from './notification.service';
 import { calculateDistance } from '../utils/geofence';
+import { publishRealtimeEvent } from '../realtime/realtime.events';
 
 export interface LocationUpdateInput {
 	bus_id: number;
@@ -116,12 +117,20 @@ export class LocationService {
 			// Send notifications for speed violation
 			await this.handleSpeedViolation(bus, input.speed, SPEED_LIMIT, input.latitude, input.longitude);
 		}
+		publishRealtimeEvent('location.updated', {
+			busId: input.bus_id,
+			latitude: input.latitude,
+			longitude: input.longitude,
+			speed: input.speed ?? null,
+			timestamp: new Date(input.timestamp || Date.now()).toISOString(),
+		});
 
 		return {
 			success: true,
 			locationId: location.id,
 			speedViolation,
 		};
+		
 	}
 
 	/**
@@ -180,6 +189,12 @@ export class LocationService {
 					distanceMeters,
 					recentLocations
 				);
+				publishRealtimeEvent('safety.motion_alert', {
+					busId: bus.id,
+					distanceMeters: Math.round(distanceMeters),
+					currentLatitude,
+					currentLongitude,
+				});
 			}
 		} catch (error) {
 			console.error('Error checking movement after failed alcohol test:', error);
@@ -317,6 +332,13 @@ export class LocationService {
 					},
 				});
 			}
+			publishRealtimeEvent('location.speed_violation', {
+				busId: bus.id,
+				speed,
+				speedLimit,
+				latitude,
+				longitude,
+			});
 		} catch (error) {
 			console.error('Error handling speed violation notification:', error);
 			// Don't throw - notification failure shouldn't break location update

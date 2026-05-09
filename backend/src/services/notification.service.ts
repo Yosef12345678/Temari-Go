@@ -2,6 +2,7 @@ import { db } from '../../models';
 import { getMessaging, isFirebaseInitialized } from '../config/firebase';
 import * as admin from 'firebase-admin';
 import { Op } from 'sequelize';
+import { publishRealtimeEvent } from '../realtime/realtime.events';
 const { Notification, User, Role, Route, RouteAssignment, Student } = db;
 
 /**
@@ -105,6 +106,7 @@ export class NotificationService {
 				message,
 				sent_at: new Date(),
 			});
+			publishRealtimeEvent('notification.created', { userId, type, message });
 		} catch (error: any) {
 			console.error(`Error sending FCM notification to user ${userId}:`, error);
 
@@ -123,6 +125,7 @@ export class NotificationService {
 					message,
 					sent_at: new Date(),
 				});
+				publishRealtimeEvent('notification.created', { userId, type, message });
 			} catch (dbError) {
 				console.error('Error logging notification to database:', dbError);
 			}
@@ -180,6 +183,8 @@ export class NotificationService {
 			missed_bus: 'Missed Bus Alert',
 			emergency: 'Emergency Alert',
 			speed_violation: 'Speed Violation Alert',
+			parent_absence: 'Parent Reported Absence',
+			sos_alert: 'Driver SOS Alert',
 		};
 		return titles[type] || 'Notification';
 	}
