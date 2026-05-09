@@ -1,5 +1,5 @@
 import { db } from '../../models';
-const { User, Role } = db;
+const { User, Role, DriverProfile } = db;
 
 export interface UpdateProfileInput {
 	name?: string;
@@ -10,13 +10,22 @@ export interface UpdateProfileInput {
 
 export class UserService {
 	static async getMe(userId: string) {
-		const user = await User.findByPk(userId, { include: [Role] });
+		const user = await User.findByPk(userId, {
+			include: [
+				Role,
+				{ model: DriverProfile, as: 'driverProfile', required: false },
+			],
+		});
 		if (!user) throw { status: 404, code: 'USER_NOT_FOUND', message: 'User not found.' };
+		const roleName = user.role?.name || 'user';
+		const driverProfile = (user as any).driverProfile;
 		return {
 			id: String(user.id),
 			name: user.name,
 			email: user.email,
-			role: user.role?.name || 'user',
+			role: roleName,
+			account_status: roleName === 'driver' ? driverProfile?.onboarding_status ?? 'pending_verification' : 'active',
+			first_login_pending: roleName === 'driver' ? Boolean(driverProfile?.first_login_pending) : false,
 			phone_number: user.phone_number ?? null,
 			username: user.username ?? null,
 			language_preference: user.language_preference ?? 'en',

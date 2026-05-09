@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { authClient } from "@/lib/auth-client";
-import { driverAPI, type Driver } from "@/lib/driver-api";
+import { driverAPI, type Driver, type DriverApplication } from "@/lib/driver-api";
 import { alcoholTestAPI, type AlcoholTest } from "@/lib/alcohol-test-api";
 import {
   driverRatingAPI,
@@ -30,6 +30,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Activity,
   AlertTriangle,
@@ -67,6 +68,14 @@ export default function DriverPage() {
   const [ratings, setRatings] = useState<DriverRatingsResponse | null>(null);
   const [ratingsLoading, setRatingsLoading] = useState(false);
   const [ratingsError, setRatingsError] = useState<string | null>(null);
+  const [applications, setApplications] = useState<DriverApplication[]>([]);
+  const [applicationsLoading, setApplicationsLoading] = useState(false);
+  const [applicationsError, setApplicationsError] = useState<string | null>(null);
+  const [applicationStatusFilter, setApplicationStatusFilter] = useState<
+    "pending_verification" | "rejected" | "active"
+  >("pending_verification");
+  const [rejectReasonById, setRejectReasonById] = useState<Record<number, string>>({});
+  const [applicationActionLoadingId, setApplicationActionLoadingId] = useState<number | null>(null);
 
   const getToken = () => authClient.getAccessToken() ?? undefined;
 
@@ -150,6 +159,28 @@ export default function DriverPage() {
     void loadRatings();
   }, [selectedDriverId]);
 
+  const loadApplications = async () => {
+    if (!isAdmin) return;
+    setApplicationsLoading(true);
+    setApplicationsError(null);
+    try {
+      const token = getToken();
+      const items = await driverAPI.listApplications(applicationStatusFilter, token);
+      setApplications(items);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to load driver applications";
+      setApplicationsError(msg);
+      setApplications([]);
+    } finally {
+      setApplicationsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadApplications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applicationStatusFilter, isAdmin]);
+
   const selectedDriver = useMemo(
     () => drivers.find((d) => d.id === selectedDriverId) ?? null,
     [drivers, selectedDriverId]
@@ -161,6 +192,32 @@ export default function DriverPage() {
   );
 
   const currentRating = ratings?.current ?? null;
+
+  const handleApproveApplication = async (userId: number) => {
+    setApplicationActionLoadingId(userId);
+    try {
+      const token = getToken();
+      await driverAPI.approveApplication(userId, token);
+      await loadApplications();
+    } catch (err: unknown) {
+      setApplicationsError(err instanceof Error ? err.message : "Failed to approve application");
+    } finally {
+      setApplicationActionLoadingId(null);
+    }
+  };
+
+  const handleRejectApplication = async (userId: number) => {
+    setApplicationActionLoadingId(userId);
+    try {
+      const token = getToken();
+      await driverAPI.rejectApplication(userId, rejectReasonById[userId] || undefined, token);
+      await loadApplications();
+    } catch (err: unknown) {
+      setApplicationsError(err instanceof Error ? err.message : "Failed to reject application");
+    } finally {
+      setApplicationActionLoadingId(null);
+    }
+  };
 
   return (
     <div className="space-y-6 p-6">
@@ -312,7 +369,7 @@ export default function DriverPage() {
           </Card>
 
           <Tabs defaultValue="tests" className="w-full">
-            <TabsList className="grid w-full max-w-sm grid-cols-2">
+            <TabsList className="grid w-full max-w-xl grid-cols-3">
               <TabsTrigger value="tests" className="flex items-center gap-2">
                 <AlertTriangle className="size-4" />
                 Alcohol tests
@@ -321,6 +378,12 @@ export default function DriverPage() {
                 <Award className="size-4" />
                 Rating history
               </TabsTrigger>
+              {isAdmin ? (
+                <TabsTrigger value="applications" className="flex items-center gap-2">
+                  <Shield className="size-4" />
+                  Driver applications
+                </TabsTrigger>
+              ) : null}
             </TabsList>
 
             <TabsContent value="tests" className="mt-4 space-y-3">
@@ -443,6 +506,103 @@ export default function DriverPage() {
                 </div>
               )}
             </TabsContent>
+            {isAdmin ? (
+              <TabsContent value="applications" className="mt-4 space-y-3">
+                {applicationsError && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{applicationsError}</AlertDescription>
+                  </Alert>
+                )}
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant={applicationStatusFilter === "pending_verification" ? "default" : "outline"}
+                    onClick={() => setApplicationStatusFilter("pending_verification")}
+                  >
+                    Pending
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={applicationStatusFilter === "rejected" ? "default" : "outline"}
+                    onClick={() => setApplicationStatusFilter("rejected")}
+                  >
+                    Rejected
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={applicationStatusFilter === "active" ? "default" : "outline"}
+                    onClick={() => setApplicationStatusFilter("active")}
+                  >
+                    Active
+                  </Button>
+                </div>
+                {applicationsLoading ? (
+                  <div className="space-y-2">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <Skeleton key={i} className="h-16 w-full" />
+                    ))}
+                  </div>
+                ) : applications.length === 0 ? (
+                  <p className="py-3 text-sm text-muted-foreground">No driver applications in this state.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {applications.map((application) => (
+                      <Card key={application.id}>
+                        <CardContent className="pt-4 space-y-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-medium">{application.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {application.email}
+                                {application.phone_number ? ` • ${application.phone_number}` : ""}
+                                {application.username ? ` • @${application.username}` : ""}
+                              </p>
+                            </div>
+                            <Badge variant="outline">{application.account_status}</Badge>
+                          </div>
+                          {application.rejected_reason ? (
+                            <p className="text-xs text-destructive">
+                              Rejected reason: {application.rejected_reason}
+                            </p>
+                          ) : null}
+                          {applicationStatusFilter === "pending_verification" ? (
+                            <div className="flex flex-col gap-2">
+                              <Input
+                                value={rejectReasonById[application.id] ?? ""}
+                                onChange={(e) =>
+                                  setRejectReasonById((prev) => ({
+                                    ...prev,
+                                    [application.id]: e.target.value,
+                                  }))
+                                }
+                                placeholder="Optional rejection reason"
+                              />
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  disabled={applicationActionLoadingId === application.id}
+                                  onClick={() => handleApproveApplication(application.id)}
+                                >
+                                  Approve + send setup link
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  disabled={applicationActionLoadingId === application.id}
+                                  onClick={() => handleRejectApplication(application.id)}
+                                >
+                                  Reject
+                                </Button>
+                              </div>
+                            </div>
+                          ) : null}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            ) : null}
           </Tabs>
         </div>
       </div>

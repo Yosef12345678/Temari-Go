@@ -151,3 +151,34 @@ export async function sendPasswordResetEmail(data: PasswordResetEmailData): Prom
 }
 
 export default transporter;
+
+export interface DriverSetupEmailData {
+  email: string;
+  setupToken: string;
+  userName: string;
+}
+
+export async function sendDriverSetupEmail(data: DriverSetupEmailData): Promise<void> {
+  const setupUrl = `${process.env.FRONTEND_URL}/driver/setup-password?token=${data.setupToken}`;
+  const mailOptions = {
+    from: process.env.NODEMAILER_USER,
+    to: data.email,
+    subject: 'Driver Account Approved - Set Your Password',
+    html: `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2937;">
+        <h2>Your driver account is approved</h2>
+        <p>Hello ${data.userName},</p>
+        <p>Your Temari Go driver application has been approved. Use the secure link below to set your password and activate your account.</p>
+        <p><a href="${setupUrl}">Set password and activate account</a></p>
+        <p>This link expires in 24 hours.</p>
+      </div>
+    `,
+    text: `Hello ${data.userName}, your driver account is approved. Set your password here: ${setupUrl}. This link expires in 24 hours.`,
+  };
+  try {
+    await transporter.sendMail(mailOptions);
+  } catch (error) {
+    console.error('Error sending driver setup email:', error);
+    throw new Error('Failed to send driver setup email');
+  }
+}

@@ -4,6 +4,7 @@ import {
   Model,
   DataType,
   HasMany,
+  HasOne,
   BelongsTo,
   ForeignKey,
 } from 'sequelize-typescript';
@@ -16,6 +17,7 @@ import { DriverFeedback } from './driverFeedback.model';
 import { DriverRating } from './driverRating.model';
 import { Payment } from './payment.model';
 import { Notification } from './notification.model';
+import { DriverProfile } from './driverProfile.model';
 
 @Table({ tableName: 'Users', underscored: true })
 export class User extends Model {
@@ -81,6 +83,9 @@ export class User extends Model {
 
   @HasMany(() => DriverRating, 'driver_id')
   driverRatings!: DriverRating[];
+
+  @HasOne(() => DriverProfile, 'user_id')
+  driverProfile?: DriverProfile;
 
   // Relationships for all users
   @HasMany(() => Notification, 'user_id')

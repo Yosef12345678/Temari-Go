@@ -140,6 +140,54 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
 	}
 };
 
+export const driverSelfRegister = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { name, email, phone_number, username } = req.body || {};
+		if (!name || !email) {
+			return next({ status: 400, code: 'VALIDATION_ERROR', message: 'Name and email are required.' });
+		}
+		const result = await AuthService.driverSelfRegister({ name, email, phone_number, username });
+		return res.status(201).json({ success: true, data: result });
+	} catch (err) {
+		return next(err);
+	}
+};
+
+export const listDriverApplications = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		if (!req.user) return next({ status: 401, code: 'UNAUTHORIZED', message: 'Access denied.' });
+		const status = (req.query.status as 'pending_verification' | 'rejected' | 'active' | undefined) ?? 'pending_verification';
+		const data = await AuthService.listDriverApplications(status);
+		return res.json({ success: true, data });
+	} catch (err) {
+		return next(err);
+	}
+};
+
+export const approveDriverApplication = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		if (!req.user) return next({ status: 401, code: 'UNAUTHORIZED', message: 'Access denied.' });
+		const userId = Number(req.params.userId);
+		if (!userId) return next({ status: 400, code: 'VALIDATION_ERROR', message: 'Invalid user id.' });
+		const data = await AuthService.approveDriverApplication(Number(req.user.id), userId);
+		return res.json({ success: true, data });
+	} catch (err) {
+		return next(err);
+	}
+};
+
+export const rejectDriverApplication = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		if (!req.user) return next({ status: 401, code: 'UNAUTHORIZED', message: 'Access denied.' });
+		const userId = Number(req.params.userId);
+		if (!userId) return next({ status: 400, code: 'VALIDATION_ERROR', message: 'Invalid user id.' });
+		const data = await AuthService.rejectDriverApplication(Number(req.user.id), userId, req.body?.reason);
+		return res.json({ success: true, data });
+	} catch (err) {
+		return next(err);
+	}
+};
+
 // Google OAuth routes
 export const googleAuth = passport.authenticate('google', {
 	scope: ['profile', 'email']
