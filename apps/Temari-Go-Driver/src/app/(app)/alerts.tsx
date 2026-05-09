@@ -1,66 +1,75 @@
-import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { getNotifications, markNotificationRead } from '@/api/notifications';
 import { ThemedText } from '@/components/themed-text';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import type { DriverNotification } from '@/types/notification';
+import { Card } from '@/components/ui/card';
+import { EmptyState, ErrorState, LoadingState } from '@/components/ui/feedback-state';
+import { FilterChip } from '@/components/ui/filter-chip';
+import { ScreenShell } from '@/components/ui/screen-shell';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { Spacing } from '@/constants/theme';
+import { useDriverNotifications, type NotificationFilter } from '@/hooks/use-driver-notifications';
 
 export default function AlertsScreen() {
-  const [items, setItems] = useState<DriverNotification[]>([]);
-  const [filter, setFilter] = useState<'all' | 'operational' | 'safety'>('all');
-
-  async function load() {
-    const next = await getNotifications();
-    setItems(next);
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  async function markRead(item: DriverNotification) {
-    await markNotificationRead(item.id);
-    await load();
-  }
-
-  const filtered = items.filter((item) => {
-    if (filter === 'all') return true;
-    if (filter === 'safety') return ['alcohol_alert', 'speed_violation', 'critical_motion_alert', 'sos_alert'].includes(item.type);
-    return ['attendance', 'attendance_issue', 'parent_absence', 'boarding', 'exiting', 'missed_bus'].some((k) => item.type.includes(k));
-  });
+  const [filter, setFilter] = useState<NotificationFilter>('all');
+  const { filtered, unreadCount, loading, error, load, markRead } = useDriverNotifications(filter);
+  const filters: { label: string; value: NotificationFilter }[] = [
+    { label: 'All', value: 'all' },
+    { label: 'Operational', value: 'operational' },
+    { label: 'Safety', value: 'safety' },
+  ];
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <ThemedText style={styles.title}>Communication & Alerts</ThemedText>
+    <ScreenShell title="Communication & Alerts" subtitle={`${unreadCount} unread alert${unreadCount === 1 ? '' : 's'}`}>
       <ScrollView horizontal contentContainerStyle={styles.filters}>
-        <Button label="All" variant={filter === 'all' ? 'default' : 'outline'} onPress={() => setFilter('all')} />
-        <Button label="Operational" variant={filter === 'operational' ? 'default' : 'outline'} onPress={() => setFilter('operational')} />
-        <Button label="Safety" variant={filter === 'safety' ? 'default' : 'outline'} onPress={() => setFilter('safety')} />
+        {filters.map((item) => (
+          <FilterChip key={item.value} label={item.label} selected={filter === item.value} onPress={() => setFilter(item.value)} />
+        ))}
       </ScrollView>
-      <ScrollView contentContainerStyle={styles.content}>
+      {loading ? <LoadingState message="Loading alerts..." /> : null}
+      {!loading && error ? <ErrorState message={error} onRetry={load} /> : null}
+      {!loading && !error && filtered.length === 0 ? (
+        <EmptyState title="No alerts found" message="Dispatch messages, safety alerts, and attendance notices will appear here." />
+      ) : null}
+      {!loading && !error ? (
+        <View style={styles.content}>
         {filtered.map((item) => (
           <Card key={item.id} style={[styles.card, !item.read && styles.unread]}>
-            <ThemedText style={styles.type}>{item.type}</ThemedText>
+            <View style={styles.cardHeader}>
+              <StatusBadge label={formatType(item.type)} tone={isSafetyType(item.type) ? 'danger' : 'info'} />
+              <ThemedText type="small" themeColor="textSecondary">{formatDate(item.created_at)}</ThemedText>
+            </View>
             <ThemedText>{item.message}</ThemedText>
             {!item.read ? (
-              <Button onPress={() => markRead(item)} label="Mark read" />
+              <Button onPress={() => markRead(item)} label="Mark read" variant="outline" />
             ) : null}
           </Card>
         ))}
-      </ScrollView>
-    </SafeAreaView>
+        </View>
+      ) : null}
+    </ScreenShell>
   );
 }
 
+function isSafetyType(type: string) {
+  return ['alcohol_alert', 'speed_violation', 'critical_motion_alert', 'sos_alert'].includes(type);
+}
+
+function formatType(type: string) {
+  return type.replace(/_/g, ' ');
+}
+
+function formatDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString();
+}
+
 const styles = StyleSheet.create({
-  screen: { flex: 1, paddingHorizontal: 16 },
-  title: { fontSize: 24, fontWeight: '700', marginTop: 8, marginBottom: 10 },
-  content: { gap: 8, paddingBottom: 20 },
-  filters: { gap: 8, paddingVertical: 8 },
-  card: { gap: 6 },
-  unread: { borderLeftColor: '#1a73e8', borderLeftWidth: 4 },
-  type: { fontWeight: '700', textTransform: 'capitalize' },
+  content: { gap: Spacing.two },
+  filters: { gap: Spacing.two },
+  card: { gap: Spacing.two },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
+  unread: { borderLeftColor: '#2563eb', borderLeftWidth: 4 },
 });

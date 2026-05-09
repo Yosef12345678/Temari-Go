@@ -1,11 +1,14 @@
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { Eye, EyeOff } from 'lucide-react-native';
 
 import { AuthScreenShell } from '@/components/auth/auth-screen-shell';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { TextField } from '@/components/ui/text-field';
+import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useSession } from '@/state/session-context';
 
@@ -43,10 +46,16 @@ export default function LoginScreen() {
       title="Sign In"
       description="Use your assigned driver account credentials to continue."
     >
-      <TextInput
-        style={[styles.input, { borderColor: theme.border, color: theme.text }]}
+      <View style={styles.notice}>
+        <StatusBadge label="Driver only" tone="info" />
+        <ThemedText type="small" themeColor="textSecondary" style={styles.noticeText}>
+          Sign in with the account verified by your Temari Go admin.
+        </ThemedText>
+      </View>
+
+      <TextField
+        label="Email or username"
         placeholder="Email or Username"
-        placeholderTextColor={theme.textSecondary}
         autoCapitalize="none"
         autoCorrect={false}
         value={emailOrUsername}
@@ -55,27 +64,26 @@ export default function LoginScreen() {
         returnKeyType="next"
       />
 
-      <View style={styles.passwordWrap}>
-        <TextInput
-          style={[styles.input, styles.passwordInput, { borderColor: theme.border, color: theme.text }]}
-          placeholder="Password"
-          placeholderTextColor={theme.textSecondary}
-          secureTextEntry={!showPassword}
-          value={password}
-          onChangeText={setPassword}
-          editable={!loading}
-          returnKeyType="go"
-          onSubmitEditing={() => void onSubmit()}
-        />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
-          onPress={() => setShowPassword((prev) => !prev)}
-          style={styles.eyeButton}
-        >
-          {showPassword ? <EyeOff size={18} color={theme.icon} /> : <Eye size={18} color={theme.icon} />}
-        </Pressable>
-      </View>
+      <TextField
+        label="Password"
+        placeholder="Password"
+        secureTextEntry={!showPassword}
+        value={password}
+        onChangeText={setPassword}
+        editable={!loading}
+        returnKeyType="go"
+        onSubmitEditing={() => void onSubmit()}
+        rightAccessory={
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+            onPress={() => setShowPassword((prev) => !prev)}
+            hitSlop={10}
+          >
+            {showPassword ? <EyeOff size={18} color={theme.icon} /> : <Eye size={18} color={theme.icon} />}
+          </Pressable>
+        }
+      />
       {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
       <Button
         disabled={!canSubmit}
@@ -94,10 +102,8 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 },
-  passwordWrap: { position: 'relative' },
-  passwordInput: { paddingRight: 40 },
-  eyeButton: { position: 'absolute', right: 12, top: '50%', transform: [{ translateY: -9 }] },
+  notice: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  noticeText: { flex: 1 },
   error: { color: '#c62828' },
   link: { textAlign: 'center' },
 });

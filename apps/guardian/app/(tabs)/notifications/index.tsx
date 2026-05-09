@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, SectionList, StyleSheet, View } from 'react-native';
-import { BellRing, Bus, MapPin, UserCheck } from 'lucide-react-native';
+import { BellRing, Bus, CheckCheck, MapPin, UserCheck } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -34,12 +34,13 @@ export default function NotificationsTab() {
   const errorColor = useThemeColor({}, 'destructive');
   const iconColor = useThemeColor({}, 'icon');
   const mutedText = useThemeColor({ light: '#64748b', dark: '#94a3b8' }, 'icon');
-  const heroBackground = useThemeColor({ light: '#eef4ff', dark: '#0f1d34' }, 'background');
   const highlightBackground = useThemeColor({ light: '#eaf2ff', dark: '#132238' }, 'background');
   const sections = React.useMemo(
     () => groupNotificationsByDate((notifications.data?.data ?? []) as NotificationItem[], t),
     [notifications.data?.data, t]
   );
+  const notificationItems = (notifications.data?.data ?? []) as NotificationItem[];
+  const unreadCount = notificationItems.filter((item) => !item.read).length;
   const latestId = notifications.data?.data?.[0]?.id;
 
   return (
@@ -52,16 +53,41 @@ export default function NotificationsTab() {
         onRetry={() => {
           void access.refetch();
         }}>
-      <View style={[styles.headerCard, { borderColor, backgroundColor: heroBackground }]}>
-        <ThemedText type="title">{t('notificationsTab.title')}</ThemedText>
-        <ThemedText style={{ color: mutedText }}>{t('notificationsTab.subtitle')}</ThemedText>
+      <View style={[styles.headerCard, { borderColor, backgroundColor: cardBackground }]}>
+        <View style={styles.headerTop}>
+          <View style={[styles.headerIcon, { backgroundColor: tint }]}>
+            <BellRing color="#ffffff" size={22} />
+          </View>
+          <View style={styles.headerText}>
+            <ThemedText type="title">{t('notificationsTab.title')}</ThemedText>
+            <ThemedText style={{ color: mutedText }}>{t('notificationsTab.subtitle')}</ThemedText>
+          </View>
+        </View>
+        <View style={styles.summaryRow}>
+          <SummaryPill label={t('notificationsTab.unread')} value={String(unreadCount)} icon={<BellRing size={14} color={tint} />} borderColor={borderColor} />
+          <SummaryPill label={t('notificationsTab.read')} value={String(Math.max(notificationItems.length - unreadCount, 0))} icon={<CheckCheck size={14} color={tint} />} borderColor={borderColor} />
+        </View>
       </View>
 
-      {notifications.isLoading ? <ThemedText>{t('common.loading')}</ThemedText> : null}
+      {notifications.isLoading ? (
+        <Card style={[styles.stateCard, { borderColor, backgroundColor: cardBackground }]}>
+          <CardContent style={styles.stateBody}>
+            <BellRing color={iconColor} size={20} />
+            <ThemedText>{t('common.loading')}</ThemedText>
+          </CardContent>
+        </Card>
+      ) : null}
       {notifications.error ? (
-        <ThemedText style={[styles.errorText, { color: errorColor }]}>
-          {(notifications.error as any)?.message ?? t('notificationsTab.failedLoad')}
-        </ThemedText>
+        <Card style={[styles.stateCard, { borderColor, backgroundColor: cardBackground }]}>
+          <CardContent style={styles.stateBody}>
+            <ThemedText type="defaultSemiBold" style={[styles.errorText, { color: errorColor }]}>
+              {(notifications.error as any)?.message ?? t('notificationsTab.failedLoad')}
+            </ThemedText>
+            <Pressable accessibilityRole="button" onPress={() => void notifications.refetch()} style={[styles.secondaryButton, { borderColor }]}>
+              <ThemedText type="defaultSemiBold">{t('common.retry')}</ThemedText>
+            </Pressable>
+          </CardContent>
+        </Card>
       ) : null}
 
       <SectionList
@@ -102,7 +128,7 @@ export default function NotificationsTab() {
                     </ThemedText>
                   </Badge>
                 </View>
-                {item.body ? <ThemedText>{item.body}</ThemedText> : null}
+                {item.body ? <ThemedText style={styles.bodyText}>{item.body}</ThemedText> : null}
                 <View style={styles.metaRow}>
                   <ThemedText style={styles.timestamp}>{formatTimestamp(item.createdAt, t)}</ThemedText>
                   {status.route ? (
@@ -171,26 +197,44 @@ export default function NotificationsTab() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, gap: 12 },
+  container: { flex: 1, paddingHorizontal: 14, gap: 8 },
   headerCard: {
     borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 2,
+    borderRadius: 18,
+    padding: 12,
+    gap: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
   },
-  listContent: { paddingVertical: 8, paddingBottom: 24, gap: 8 },
-  sectionHeader: { marginTop: 4, marginBottom: 4 },
+  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerIcon: { width: 38, height: 38, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  headerText: { flex: 1, gap: 2 },
+  summaryRow: { flexDirection: 'row', gap: 8 },
+  summaryPill: { flex: 1, borderWidth: 1, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 8, gap: 2 },
+  summaryPillTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  summaryValue: { fontSize: 18, lineHeight: 22 },
+  stateCard: { borderWidth: 1, borderRadius: 16 },
+  stateBody: { alignItems: 'center', gap: 8, paddingVertical: 12 },
+  listContent: { paddingTop: 6, paddingBottom: 20, gap: 4 },
+  sectionHeader: { marginTop: 6, marginBottom: 2 },
   card: {
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 16,
     paddingVertical: 0,
-    marginBottom: 10,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 1,
   },
   cardBody: {
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
   },
   rowTop: {
     flexDirection: 'row',
@@ -204,6 +248,7 @@ const styles = StyleSheet.create({
     gap: 8,
     flex: 1,
   },
+  bodyText: { lineHeight: 21, opacity: 0.9 },
   timestamp: {
     opacity: 0.75,
   },
@@ -212,7 +257,7 @@ const styles = StyleSheet.create({
   routeIcon: { width: 16, height: 16 },
   routeText: { opacity: 0.85, fontSize: 12 },
   button: {
-    paddingVertical: 10,
+    paddingVertical: 9,
     borderRadius: 12,
     alignItems: 'center',
   },
@@ -220,14 +265,36 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 12,
     alignItems: 'center',
-    paddingVertical: 9,
+    paddingVertical: 8,
   },
-  emptyCard: { borderWidth: 1, borderRadius: 14, marginTop: 4 },
-  emptyBody: { alignItems: 'center', gap: 8, paddingVertical: 16 },
-  emptyImage: { width: 180, height: 110 },
+  emptyCard: { borderWidth: 1, borderRadius: 16, marginTop: 4 },
+  emptyBody: { alignItems: 'center', gap: 8, paddingVertical: 14 },
+  emptyImage: { width: 150, height: 92 },
   emptyText: { opacity: 0.78, textAlign: 'center' },
   errorText: { fontSize: 14 },
 });
+
+function SummaryPill({
+  label,
+  value,
+  icon,
+  borderColor,
+}: {
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+  borderColor: string;
+}) {
+  return (
+    <View style={[styles.summaryPill, { borderColor }]}>
+      <View style={styles.summaryPillTop}>
+        {icon}
+        <ThemedText>{label}</ThemedText>
+      </View>
+      <ThemedText type="defaultSemiBold" style={styles.summaryValue}>{value}</ThemedText>
+    </View>
+  );
+}
 
 function groupNotificationsByDate(items: NotificationItem[], t: (k: string) => string): NotificationSection[] {
   const grouped = new Map<string, NotificationItem[]>();

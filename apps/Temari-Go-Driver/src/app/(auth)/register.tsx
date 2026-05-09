@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 
 import { driverRegister } from '@/api/auth';
@@ -7,6 +7,9 @@ import { unwrapData } from '@/api/envelope';
 import { AuthScreenShell } from '@/components/auth/auth-screen-shell';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { TextField } from '@/components/ui/text-field';
+import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 function validateEmail(email: string): string | null {
@@ -64,72 +67,59 @@ export default function DriverRegistrationScreen() {
       title="Apply to drive"
       description="Submit your details. An admin will verify your account and send you a setup link."
     >
-      <View style={styles.field}>
-        <ThemedText type="smallBold">Full name *</ThemedText>
-        <TextInput
-          style={[styles.input, { borderColor: theme.border, color: theme.text }]}
-          placeholder="Full name"
-          placeholderTextColor={theme.textSecondary}
-          value={name}
-          onChangeText={setName}
-          editable={!submitting}
-          autoCapitalize="words"
-          returnKeyType="next"
-        />
-        {nameError ? <ThemedText style={styles.error}>{nameError}</ThemedText> : null}
-      </View>
-
-      <View style={styles.field}>
-        <ThemedText type="smallBold">Email *</ThemedText>
-        <TextInput
-          style={[styles.input, { borderColor: theme.border, color: theme.text }]}
-          placeholder="email@example.com"
-          placeholderTextColor={theme.textSecondary}
-          value={email}
-          onChangeText={setEmail}
-          editable={!submitting}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="email-address"
-          returnKeyType="next"
-        />
-        {emailError ? <ThemedText style={styles.error}>{emailError}</ThemedText> : null}
-      </View>
-
-      <View style={styles.field}>
-        <ThemedText type="smallBold">Phone number</ThemedText>
-        <TextInput
-          style={[styles.input, { borderColor: theme.border, color: theme.text }]}
-          placeholder="+2519..."
-          placeholderTextColor={theme.textSecondary}
-          value={phone_number}
-          onChangeText={setPhoneNumber}
-          editable={!submitting}
-          keyboardType="phone-pad"
-          returnKeyType="next"
-        />
-        <ThemedText type="small" themeColor="textSecondary">
-          Optional, but recommended.
+      <View style={styles.notice}>
+        <StatusBadge label="Admin verification required" tone="warning" />
+        <ThemedText type="small" themeColor="textSecondary" style={styles.noticeText}>
+          Your application creates a pending driver profile for review.
         </ThemedText>
       </View>
 
-      <View style={styles.field}>
-        <ThemedText type="smallBold">Username</ThemedText>
-        <TextInput
-          style={[styles.input, { borderColor: theme.border, color: theme.text }]}
-          placeholder="@username"
-          placeholderTextColor={theme.textSecondary}
-          value={username}
-          onChangeText={setUsername}
-          editable={!submitting}
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="done"
-        />
-        <ThemedText type="small" themeColor="textSecondary">
-          Optional. Must be unique.
-        </ThemedText>
-      </View>
+      <TextField
+        label="Full name *"
+        placeholder="Full name"
+        value={name}
+        onChangeText={setName}
+        editable={!submitting}
+        autoCapitalize="words"
+        returnKeyType="next"
+        error={name ? nameError : null}
+      />
+
+      <TextField
+        label="Email *"
+        placeholder="email@example.com"
+        value={email}
+        onChangeText={setEmail}
+        editable={!submitting}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="email-address"
+        returnKeyType="next"
+        error={email ? emailError : null}
+      />
+
+      <TextField
+        label="Phone number"
+        placeholder="+2519..."
+        value={phone_number}
+        onChangeText={setPhoneNumber}
+        editable={!submitting}
+        keyboardType="phone-pad"
+        returnKeyType="next"
+        helperText="Optional, but recommended."
+      />
+
+      <TextField
+        label="Username"
+        placeholder="@username"
+        value={username}
+        onChangeText={setUsername}
+        editable={!submitting}
+        autoCapitalize="none"
+        autoCorrect={false}
+        returnKeyType="done"
+        helperText="Optional. Must be unique."
+      />
 
       {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
       {successMessage ? (
@@ -153,8 +143,8 @@ export default function DriverRegistrationScreen() {
 }
 
 const styles = StyleSheet.create({
-  field: { gap: 6 },
-  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 },
+  notice: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  noticeText: { flex: 1 },
   error: { color: '#c62828' },
   success: { fontSize: 14, lineHeight: 20, fontWeight: 600 },
   link: { textAlign: 'center' },

@@ -1,22 +1,29 @@
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, StyleSheet, UIManager, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { acceptJob, arriveJob, completeJob, getMyJobs, pickupJob } from '@/api/driver';
 import { subscribeRealtime, type RealtimeSnapshot } from '@/api/realtime';
+import { AppBrand } from '@/components/app-brand';
+import {
+  RouteActionPanel,
+  RouteHero,
+  RouteStats,
+  SectionHeader,
+  StopEtaCard,
+} from '@/components/driver/route-home-components';
 import { ThemedText } from '@/components/themed-text';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useSession } from '@/state/session-context';
 import type { DriverJob } from '@/types/driver';
 
-const STATUS_COLOR: Record<string, string> = {
-  online: '#1b9e3f',
-  offline: '#b3261e',
-  degraded: '#d97706',
-};
+const isNativeMapAvailable =
+  Platform.OS !== 'web' &&
+  (UIManager.getViewManagerConfig?.('AIRMap') || UIManager.getViewManagerConfig?.('AIRGoogleMap'));
 
 export default function RouteScreen() {
   const theme = useTheme();
@@ -61,47 +68,61 @@ export default function RouteScreen() {
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.header}>
-        <ThemedText style={styles.title}>Route Execution</ThemedText>
+        <AppBrand compact subtitle="Driver console" />
         <Button label="Logout" variant="outline" onPress={signOut} />
       </View>
-      <ThemedText style={[styles.sync, { color: STATUS_COLOR[sync?.status ?? 'degraded'] }]}>
-        Sync: {sync?.status ?? 'degraded'} {sync ? `- unread ${sync.unreadCount}` : ''}
-      </ThemedText>
       {!job ? (
-        <ThemedText style={styles.empty}>No active route assigned.</ThemedText>
+        <View style={styles.emptyWrap}>
+          <RouteHero job={null} syncStatus={sync?.status ?? 'degraded'} unreadCount={sync?.unreadCount} />
+          <Card style={styles.emptyCard}>
+            <ThemedText type="subtitle" style={styles.emptyTitle}>No active route assigned</ThemedText>
+            <ThemedText themeColor="textSecondary" style={styles.emptyText}>
+              You are all set. New route assignments, operational notices, and safety alerts will appear here as soon as dispatch sends them.
+            </ThemedText>
+          </Card>
+        </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
-          <ThemedText style={styles.routeName}>{job.name}</ThemedText>
-          <ThemedText>Job status: {job.lifecycle_status}</ThemedText>
-          <View style={styles.mapWrap}>
-            <MapView
-              style={styles.map}
-              initialRegion={{
-                latitude: coordinates[0]?.latitude ?? 9.03,
-                longitude: coordinates[0]?.longitude ?? 38.74,
-                latitudeDelta: 0.25,
-                longitudeDelta: 0.25,
-              }}
-            >
-              {coordinates.map((coord, idx) => (
-                <Marker key={`${coord.latitude}-${coord.longitude}-${idx}`} coordinate={coord} />
-              ))}
-              {coordinates.length > 1 ? <Polyline coordinates={coordinates} strokeWidth={4} strokeColor={theme.tint} /> : null}
-            </MapView>
-          </View>
-          <ThemedText style={styles.section}>Stop ETAs</ThemedText>
+          <RouteHero job={job} syncStatus={sync?.status ?? 'degraded'} unreadCount={sync?.unreadCount} />
+          <RouteStats job={job} />
+          <Card style={styles.mapCard}>
+            <SectionHeader title="Live route map" detail={`${coordinates.length} mapped stops`} />
+            {isNativeMapAvailable ? (
+              <View style={styles.mapWrap}>
+                <MapView
+                  style={styles.map}
+                  initialRegion={{
+                    latitude: coordinates[0]?.latitude ?? 9.03,
+                    longitude: coordinates[0]?.longitude ?? 38.74,
+                    latitudeDelta: 0.25,
+                    longitudeDelta: 0.25,
+                  }}
+                >
+                  {coordinates.map((coord, idx) => (
+                    <Marker key={`${coord.latitude}-${coord.longitude}-${idx}`} coordinate={coord} />
+                  ))}
+                  {coordinates.length > 1 ? <Polyline coordinates={coordinates} strokeWidth={4} strokeColor={theme.tint} /> : null}
+                </MapView>
+              </View>
+            ) : (
+              <View style={styles.mapFallback}>
+                <ThemedText type="smallBold">Map preview unavailable</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  The current app build does not include the native maps module. Route stops are still listed below.
+                </ThemedText>
+              </View>
+            )}
+          </Card>
+          <SectionHeader title="Stop ETAs" detail="Pickup order" />
           {(job.route_stops_eta ?? []).map((stop) => (
-            <Card key={stop.assignment_id} style={styles.row}>
-              <ThemedText style={styles.rowText}>{stop.student_name ?? `Student ${stop.student_id}`}</ThemedText>
-              <ThemedText style={styles.rowText}>{stop.eta_minutes} min</ThemedText>
-            </Card>
+            <StopEtaCard
+              key={stop.assignment_id}
+              index={stop.pickup_order ?? 0}
+              name={stop.student_name ?? `Student ${stop.student_id}`}
+              etaMinutes={stop.eta_minutes}
+            />
           ))}
-          <View style={styles.actions}>
-            <Button style={styles.button} onPress={() => transition('accept')} label="Accept" />
-            <Button style={styles.button} onPress={() => transition('arrive')} label="Arrive" />
-            <Button style={styles.button} onPress={() => transition('pickup')} label="Pickup" />
-            <Button style={styles.button} onPress={() => transition('complete')} label="Complete" />
-          </View>
+          <RouteActionPanel status={job.lifecycle_status} onTransition={transition} />
         </ScrollView>
       )}
     </SafeAreaView>
@@ -109,19 +130,15 @@ export default function RouteScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, paddingHorizontal: 16 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
-  title: { fontSize: 24, fontWeight: '700' },
-  link: { color: '#1a73e8', fontWeight: '600' },
-  sync: { marginTop: 6, marginBottom: 8, fontWeight: '600' },
-  empty: { marginTop: 20 },
-  content: { gap: 10, paddingBottom: 20 },
-  routeName: { fontWeight: '700', fontSize: 18 },
-  mapWrap: { height: 220, borderRadius: 12, overflow: 'hidden' },
+  screen: { flex: 1, paddingHorizontal: Spacing.three, backgroundColor: '#f8fafc' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: Spacing.three, marginTop: Spacing.two, marginBottom: Spacing.three },
+  emptyWrap: { gap: Spacing.three },
+  emptyCard: { padding: Spacing.four, borderRadius: 22 },
+  emptyTitle: { fontSize: 24, lineHeight: 30 },
+  emptyText: { fontSize: 15, lineHeight: 23 },
+  content: { gap: Spacing.three, paddingBottom: Spacing.four },
+  mapCard: { gap: Spacing.three, padding: Spacing.three },
+  mapWrap: { height: 240, borderRadius: 18, overflow: 'hidden' },
+  mapFallback: { minHeight: 160, borderRadius: 18, alignItems: 'center', justifyContent: 'center', gap: Spacing.two, padding: Spacing.three, backgroundColor: '#e2e8f0' },
   map: { width: '100%', height: '100%' },
-  section: { marginTop: 8, fontWeight: '700' },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  rowText: { fontSize: 14 },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  button: { minWidth: 90 },
 });

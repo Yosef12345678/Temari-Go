@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { CircleHelp, Globe, LogOut, MessageCircleMore, MoonStar, ShieldCheck, UserRound } from 'lucide-react-native';
+import { CircleHelp, Globe, LogOut, Mail, MessageCircleMore, MoonStar, Phone, ShieldCheck, UserRound } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -29,7 +29,7 @@ export default function ProfileTab() {
   const errorColor = useThemeColor({}, 'destructive');
   const iconColor = useThemeColor({}, 'icon');
   const mutedText = useThemeColor({ light: '#64748b', dark: '#94a3b8' }, 'icon');
-  const heroBackground = useThemeColor({ light: '#eef4ff', dark: '#0f1d34' }, 'background');
+  const tint = useThemeColor({}, 'tint');
   const [themeEnabled, setThemeEnabled] = React.useState(false);
   const [language, setLanguage] = React.useState<'english' | 'amharic'>(() => (i18n.language === 'am' ? 'amharic' : 'english'));
 
@@ -56,9 +56,14 @@ export default function ProfileTab() {
       <ScrollView
         contentContainerStyle={styles.scrollBody}
         refreshControl={<RefreshControl refreshing={me.isRefetching} onRefresh={() => void me.refetch()} />}>
-        <View style={[styles.titleCard, { borderColor, backgroundColor: heroBackground }]}>
-          <ThemedText type="title">{t('profileTab.title')}</ThemedText>
-          <ThemedText style={{ color: mutedText }}>{t('profileTab.subtitle')}</ThemedText>
+        <View style={[styles.titleCard, { borderColor, backgroundColor: cardBackground }]}>
+          <View style={[styles.titleIcon, { backgroundColor: tint }]}>
+            <UserRound color="#ffffff" size={22} />
+          </View>
+          <View style={styles.titleText}>
+            <ThemedText type="title">{t('profileTab.title')}</ThemedText>
+            <ThemedText style={{ color: mutedText }}>{t('profileTab.subtitle')}</ThemedText>
+          </View>
         </View>
 
         {me.isLoading ? <ThemedText>{t('common.loading')}</ThemedText> : null}
@@ -75,8 +80,11 @@ export default function ProfileTab() {
               </AvatarFallback>
             </Avatar>
             <View style={styles.heroText}>
-              <ThemedText type="defaultSemiBold">{accountName}</ThemedText>
-              <ThemedText>{accountEmail}</ThemedText>
+              <ThemedText type="subtitle">{accountName}</ThemedText>
+              <View style={styles.inlineMeta}>
+                <Mail color={iconColor} size={14} />
+                <ThemedText style={{ color: mutedText }}>{accountEmail}</ThemedText>
+              </View>
               <View style={styles.badges}>
                 <Badge variant="secondary">
                   <ThemedText>{role}</ThemedText>
@@ -95,7 +103,7 @@ export default function ProfileTab() {
           </CardHeader>
           <CardContent style={styles.sectionContent}>
             <SettingRow
-              icon={<UserRound color={iconColor} size={16} />}
+              icon={<Phone color={iconColor} size={16} />}
               label={t('profileTab.phone')}
               value={accountPhone}
               borderColor={borderColor}
@@ -117,7 +125,7 @@ export default function ProfileTab() {
             <View style={[styles.prefRow, { borderColor }]}>
               <View style={styles.prefLeft}>
                 <Globe color={iconColor} size={16} />
-                <View>
+                <View style={styles.prefCopy}>
                   <ThemedText type="defaultSemiBold">{t('profileTab.language')}</ThemedText>
                   <ThemedText>{t('profileTab.selectLanguage')}</ThemedText>
                 </View>
@@ -147,7 +155,7 @@ export default function ProfileTab() {
             <View style={[styles.prefRow, { borderColor }]}>
               <View style={styles.prefLeft}>
                 <MoonStar color={iconColor} size={16} />
-                <View>
+                <View style={styles.prefCopy}>
                   <ThemedText type="defaultSemiBold">{t('profileTab.theme')}</ThemedText>
                   <ThemedText>{t('profileTab.themePlaceholder')}</ThemedText>
                 </View>
@@ -174,7 +182,7 @@ export default function ProfileTab() {
               onPress={() => router.push('/modals/helpdesk' as any)}>
               <View style={styles.prefLeft}>
                 <CircleHelp color={iconColor} size={16} />
-                <View>
+                <View style={styles.prefCopy}>
                   <ThemedText type="defaultSemiBold">{t('profileTab.helpDesk')}</ThemedText>
                   <ThemedText>{t('profileTab.helpDeskSubtitle')}</ThemedText>
                 </View>
@@ -186,7 +194,7 @@ export default function ProfileTab() {
               onPress={() => router.push('/modals/live-chat' as any)}>
               <View style={styles.prefLeft}>
                 <MessageCircleMore color={iconColor} size={16} />
-                <View>
+                <View style={styles.prefCopy}>
                   <ThemedText type="defaultSemiBold">{t('profileTab.liveChat')}</ThemedText>
                   <ThemedText>{t('profileTab.liveChatSubtitle')}</ThemedText>
                 </View>
@@ -205,27 +213,43 @@ export default function ProfileTab() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, gap: 12 },
-  scrollBody: { gap: 12, paddingBottom: 28 },
+  container: { flex: 1, paddingHorizontal: 14, gap: 8 },
+  scrollBody: { gap: 10, paddingBottom: 24 },
   titleCard: {
     borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 2,
+    borderRadius: 18,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
   },
+  titleIcon: { width: 38, height: 38, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  titleText: { flex: 1, gap: 2 },
   heroCard: {
     borderWidth: 1,
+    borderRadius: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 1,
   },
   heroBody: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
+    paddingVertical: 12,
   },
   heroText: {
     gap: 4,
     flex: 1,
   },
+  inlineMeta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   badges: {
     flexDirection: 'row',
     gap: 8,
@@ -233,15 +257,17 @@ const styles = StyleSheet.create({
   },
   sectionCard: {
     borderWidth: 1,
+    borderRadius: 16,
   },
   sectionContent: {
-    gap: 10,
+    gap: 8,
+    paddingTop: 0,
   },
   prefRow: {
     borderWidth: 1,
     borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -253,6 +279,7 @@ const styles = StyleSheet.create({
     gap: 10,
     flex: 1,
   },
+  prefCopy: { flex: 1, gap: 2 },
   langActions: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -261,8 +288,8 @@ const styles = StyleSheet.create({
   supportButton: {
     borderWidth: 1,
     borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
   },
   errorText: { fontSize: 14 },
 });

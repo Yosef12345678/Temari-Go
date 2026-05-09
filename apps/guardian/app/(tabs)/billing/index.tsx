@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowRight, CheckCircle2, Clock3, CreditCard, ReceiptText, XCircle } from 'lucide-react-native';
+import { ArrowRight, CheckCircle2, Clock3, CreditCard, ReceiptText, WalletCards, XCircle } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
@@ -34,8 +34,11 @@ export default function BillingTab() {
   const warningColor = useThemeColor({ light: '#ca8a04', dark: '#facc15' }, 'tint');
   const failColor = useThemeColor({ light: '#dc2626', dark: '#f87171' }, 'tint');
   const mutedText = useThemeColor({ light: '#64748b', dark: '#94a3b8' }, 'icon');
-  const heroBackground = useThemeColor({ light: '#eef4ff', dark: '#0f1d34' }, 'background');
   const isRefreshing = invoices.isRefetching || payments.isRefetching;
+  const invoiceItems = invoices.data?.data ?? [];
+  const paymentItems = payments.data?.data ?? [];
+  const dueInvoices = invoiceItems.filter((item: any) => isInvoicePayable(item));
+  const paidInvoices = invoiceItems.filter((item: any) => String(item.status ?? '').trim().toLowerCase() === 'paid');
 
   return (
     <ThemedView style={[styles.container, { paddingTop: insets.top + 12 }]}>
@@ -47,7 +50,10 @@ export default function BillingTab() {
         onRetry={() => {
           void access.refetch();
         }}>
-      <View style={[styles.headerCard, { borderColor, backgroundColor: heroBackground }]}>
+      <View style={[styles.headerCard, { borderColor, backgroundColor: cardBackground }]}>
+        <View style={[styles.headerIcon, { backgroundColor: tint }]}>
+          <WalletCards color="#ffffff" size={22} />
+        </View>
         <View style={styles.headerText}>
           <ThemedText type="title">{t('billingTab.title')}</ThemedText>
           <ThemedText style={{ color: mutedText }}>{t('billingTab.subtitle')}</ThemedText>
@@ -73,18 +79,11 @@ export default function BillingTab() {
             </CardContent>
           </Card>
         ) : null}
-        <Card style={[styles.summaryCard, { borderColor }]}>
+        <Card style={[styles.summaryCard, { borderColor, backgroundColor: cardBackground }]}>
           <CardContent style={styles.summaryContent}>
-            <View style={styles.summaryItem}>
-              <ReceiptText color={iconColor} size={18} />
-              <ThemedText type="defaultSemiBold">{String(invoices.data?.data?.length ?? 0)}</ThemedText>
-              <ThemedText>{t('billingTab.invoices')}</ThemedText>
-            </View>
-            <View style={styles.summaryItem}>
-              <CreditCard color={iconColor} size={18} />
-              <ThemedText type="defaultSemiBold">{String(payments.data?.data?.length ?? 0)}</ThemedText>
-              <ThemedText>{t('billingTab.payments')}</ThemedText>
-            </View>
+            <BillingMetric icon={<ReceiptText color={iconColor} size={18} />} value={String(invoiceItems.length)} label={t('billingTab.invoices')} />
+            <BillingMetric icon={<Clock3 color={warningColor} size={18} />} value={String(dueInvoices.length)} label={t('billingTab.pending')} />
+            <BillingMetric icon={<CreditCard color={successColor} size={18} />} value={String(paymentItems.length || paidInvoices.length)} label={t('billingTab.payments')} />
           </CardContent>
         </Card>
 
@@ -97,10 +96,13 @@ export default function BillingTab() {
             </ThemedText>
           ) : null}
 
-          {(invoices.data?.data ?? []).map((item: any) => (
+          {invoiceItems.map((item: any) => (
             <Card key={String(item.id)} style={[styles.card, { borderColor, backgroundColor: cardBackground }]}>
               <CardHeader style={styles.cardHeader}>
-                <CardTitle>{t('billingTab.invoiceNumber', { id: String(item.id) })}</CardTitle>
+                <View style={styles.cardTitleWrap}>
+                  <ReceiptText color={iconColor} size={18} />
+                  <CardTitle>{t('billingTab.invoiceNumber', { id: String(item.id) })}</CardTitle>
+                </View>
                 <StatusBadge
                   status={String(item.status ?? '')}
                   successColor={successColor}
@@ -144,7 +146,7 @@ export default function BillingTab() {
               </CardContent>
             </Card>
           ))}
-          {!invoices.isLoading && (invoices.data?.data?.length ?? 0) === 0 ? (
+          {!invoices.isLoading && invoiceItems.length === 0 ? (
             <EmptyStateCard
                title={t('billingTab.emptyInvoicesTitle')}
               subtitle={t('billingTab.emptyInvoicesSubtitle')}
@@ -164,10 +166,13 @@ export default function BillingTab() {
             </ThemedText>
           ) : null}
 
-          {(payments.data?.data ?? []).map((item: any) => (
+          {paymentItems.map((item: any) => (
             <Card key={String(item.id)} style={[styles.card, { borderColor, backgroundColor: cardBackground }]}>
               <CardHeader style={styles.cardHeader}>
-                <CardTitle>{t('billingTab.paymentNumber', { id: String(item.id) })}</CardTitle>
+                <View style={styles.cardTitleWrap}>
+                  <CreditCard color={iconColor} size={18} />
+                  <CardTitle>{t('billingTab.paymentNumber', { id: String(item.id) })}</CardTitle>
+                </View>
                 <StatusBadge
                   status={String(item.status ?? '')}
                   successColor={successColor}
@@ -195,7 +200,7 @@ export default function BillingTab() {
               </CardContent>
             </Card>
           ))}
-          {!payments.isLoading && (payments.data?.data?.length ?? 0) === 0 ? (
+          {!payments.isLoading && paymentItems.length === 0 ? (
             <EmptyStateCard
               title={t('billingTab.emptyPaymentsTitle')}
               subtitle={t('billingTab.emptyPaymentsSubtitle')}
@@ -212,29 +217,38 @@ export default function BillingTab() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, gap: 12 },
+  container: { flex: 1, paddingHorizontal: 14, gap: 8 },
   headerCard: {
     borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderRadius: 18,
+    padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
   },
+  headerIcon: { width: 38, height: 38, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   headerText: { flex: 1, gap: 2 },
-  scrollBody: { gap: 14, paddingBottom: 24 },
-  summaryCard: { borderWidth: 1 },
-  feedbackCard: { borderWidth: 1 },
+  scrollBody: { gap: 10, paddingBottom: 20 },
+  summaryCard: { borderWidth: 1, borderRadius: 16 },
+  feedbackCard: { borderWidth: 1, borderRadius: 16 },
   feedbackBody: { gap: 4 },
-  summaryContent: { flexDirection: 'row', justifyContent: 'space-around', gap: 12 },
-  summaryItem: { alignItems: 'center', gap: 4 },
-  section: { gap: 10 },
+  summaryContent: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, paddingVertical: 12 },
+  summaryItem: { flex: 1, alignItems: 'center', gap: 3 },
+  section: { gap: 8 },
   card: {
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 16,
     paddingVertical: 0,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 1,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -242,10 +256,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
+  cardTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   cardBody: {
-    gap: 8,
+    gap: 7,
+    paddingTop: 0,
   },
-  row: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   button: {
     paddingVertical: 8,
     paddingHorizontal: 14,
@@ -253,8 +269,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   invoicePayButton: {
-    marginTop: 10,
-    paddingVertical: 10,
+    marginTop: 8,
+    paddingVertical: 9,
     paddingHorizontal: 14,
     borderRadius: 12,
     alignItems: 'center',
@@ -262,12 +278,22 @@ const styles = StyleSheet.create({
   buttonInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   metaInline: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   badgeInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  emptyCard: { borderWidth: 1, borderRadius: 14 },
-  emptyBody: { alignItems: 'center', gap: 8, paddingVertical: 16 },
-  emptyImage: { width: 180, height: 110 },
+  emptyCard: { borderWidth: 1, borderRadius: 16 },
+  emptyBody: { alignItems: 'center', gap: 8, paddingVertical: 14 },
+  emptyImage: { width: 150, height: 92 },
   emptyText: { opacity: 0.78, textAlign: 'center' },
   errorText: { fontSize: 14 },
 });
+
+function BillingMetric({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
+  return (
+    <View style={styles.summaryItem}>
+      {icon}
+      <ThemedText type="defaultSemiBold">{value}</ThemedText>
+      <ThemedText>{label}</ThemedText>
+    </View>
+  );
+}
 
 function StatusBadge({ status, successColor, warningColor, failColor }: { status: string; successColor: string; warningColor: string; failColor: string }) {
   const normalized = status.trim().toLowerCase();

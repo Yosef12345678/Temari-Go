@@ -1,36 +1,26 @@
 import NetInfo from '@react-native-community/netinfo';
-import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, TextInput } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useState } from 'react';
+import { Alert, StyleSheet, View } from 'react-native';
+import { ClipboardCheck, UserCheck, UserMinus, UsersRound } from 'lucide-react-native';
 
-import { getBusAttendance, getDriverAbsences, manualAttendance } from '@/api/attendance';
-import { getMyJobs } from '@/api/driver';
+import { manualAttendance } from '@/api/attendance';
 import { ThemedText } from '@/components/themed-text';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { EmptyState, ErrorState, LoadingState } from '@/components/ui/feedback-state';
+import { MetricCard } from '@/components/ui/metric-card';
+import { ScreenShell } from '@/components/ui/screen-shell';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { TextField } from '@/components/ui/text-field';
+import { Spacing } from '@/constants/theme';
+import { useDriverAttendance } from '@/hooks/use-driver-attendance';
 import { enqueue, readQueue, replaceQueue } from '@/sync/offline-queue';
-import type { AttendanceSummary, AttendanceStudent, DriverAbsence } from '@/types/attendance';
+import type { AttendanceStudent } from '@/types/attendance';
 
 export default function AttendanceScreen() {
-  const [summary, setSummary] = useState<AttendanceSummary | null>(null);
-  const [busId, setBusId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<AttendanceStudent | null>(null);
-  const [absences, setAbsences] = useState<DriverAbsence[]>([]);
-
-  async function load() {
-    const jobs = await getMyJobs('active');
-    const inferredBus = jobs[0]?.bus_id ?? null;
-    setBusId(inferredBus);
-    if (inferredBus) {
-      setSummary(await getBusAttendance(inferredBus));
-      setAbsences(await getDriverAbsences());
-    }
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
+  const { summary, busId, absences, loading, error, filteredStudents, load } = useDriverAttendance(search);
 
   async function onManual() {
     if (!busId || !selectedStudent) return;
@@ -66,65 +56,73 @@ export default function AttendanceScreen() {
     await load();
   }
 
-  const filteredStudents = (summary?.expectedStudents ?? []).filter((s) =>
-    `${s.full_name} ${s.id}`.toLowerCase().includes(search.toLowerCase())
-  );
-
   return (
-    <SafeAreaView style={styles.screen}>
-      <ThemedText style={styles.title}>Attendance Dashboard</ThemedText>
-      {!summary ? (
-        <ThemedText>No active bus assignment found.</ThemedText>
-      ) : (
-        <ScrollView contentContainerStyle={styles.content}>
-          <ThemedText>Total expected: {summary.statistics.totalAssignedStudents}</ThemedText>
-          <ThemedText>Onboard now: {summary.statistics.currentOnboardCount}</ThemedText>
-          <ThemedText style={styles.missed}>Missed pickups: {summary.statistics.missedPickupCount}</ThemedText>
-          <ThemedText>Parent-reported absences: {summary.statistics.reportedAbsentCount ?? 0}</ThemedText>
-          <ThemedText style={styles.section}>Students</ThemedText>
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search student by name or id"
-            style={styles.input}
-          />
-          {filteredStudents.map((s) => (
-            <Card key={s.id} style={styles.row}>
-              <ThemedText>{s.full_name}</ThemedText>
-              <ThemedText style={{ color: s.absent ? '#64748b' : s.boarded ? '#1b9e3f' : '#b3261e' }}>
-                {s.absent ? 'Absent' : s.boarded ? 'Boarded' : 'Expected'}
-              </ThemedText>
+    <ScreenShell title="Attendance" subtitle={summary ? `Bus ${summary.bus.bus_number} · ${summary.date}` : 'Track student boarding and exits'}>
+      {loading ? <LoadingState message="Loading attendance..." /> : null}
+      {!loading && error ? <ErrorState message={error} onRetry={load} /> : null}
+      {!loading && !error && !summary ? (
+        <EmptyState title="No active bus assignment" message="Attendance tools will appear when dispatch assigns your active route." />
+      ) : null}
+      {!loading && !error && summary ? (
+        <>
+          <View style={styles.metrics}>
+            <MetricCard icon={UsersRound} label="Expected" value={summary.statistics.totalAssignedStudents} />
+            <MetricCard icon={UserCheck} label="Onboard" value={summary.statistics.currentOnboardCount} tone="success" />
+            <MetricCard icon={UserMinus} label="Missed" value={summary.statistics.missedPickupCount} tone="danger" />
+            <MetricCard icon={ClipboardCheck} label="Absences" value={summary.statistics.reportedAbsentCount ?? 0} tone="warning" />
+          </View>
+          <TextField value={search} onChangeText={setSearch} placeholder="Search student by name or ID" label="Students" />
+          {filteredStudents.length === 0 ? (
+            <EmptyState title="No students found" message="Try a different name or student ID." />
+          ) : filteredStudents.map((student) => (
+            <Card key={student.id} style={styles.studentCard}>
+              <View style={styles.studentCopy}>
+                <ThemedText type="smallBold">{student.full_name}</ThemedText>
+                {student.grade ? <ThemedText type="small" themeColor="textSecondary">Grade {student.grade}</ThemedText> : null}
+              </View>
+              <StatusBadge
+                label={student.absent ? 'Absent' : student.boarded ? 'Boarded' : 'Expected'}
+                tone={student.absent ? 'neutral' : student.boarded ? 'success' : 'warning'}
+              />
               <Button
-                label={selectedStudent?.id === s.id ? 'Selected' : 'Select'}
-                variant={selectedStudent?.id === s.id ? 'default' : 'outline'}
-                onPress={() => setSelectedStudent(s)}
+                label={selectedStudent?.id === student.id ? 'Selected' : 'Select'}
+                variant={selectedStudent?.id === student.id ? 'default' : 'outline'}
+                onPress={() => setSelectedStudent(student)}
               />
             </Card>
           ))}
-          <ThemedText style={styles.section}>Manual attendance</ThemedText>
-          <ThemedText>{selectedStudent ? `Selected: ${selectedStudent.full_name}` : 'Select a student above'}</ThemedText>
-          <Button label="Manual Check-In" onPress={onManual} />
-          <Button label="Manual Check-Out" variant="outline" onPress={onManualExit} />
-          <Button label="Sync Buffered Data" variant="outline" onPress={flushQueue} />
-          <ThemedText style={styles.section}>Parent Absence Alerts</ThemedText>
-          {absences.map((item) => (
-            <Card key={item.id}>
-              <ThemedText>{item.student_name ?? `Student ${item.student_id}`} - {item.absence_date}</ThemedText>
-              {item.reason ? <ThemedText type="small" themeColor="textSecondary">{item.reason}</ThemedText> : null}
+          <Card style={styles.manualCard}>
+            <ThemedText type="smallBold">Manual attendance</ThemedText>
+            <ThemedText themeColor="textSecondary">{selectedStudent ? `Selected: ${selectedStudent.full_name}` : 'Select a student above to record manual attendance.'}</ThemedText>
+            <View style={styles.actions}>
+              <Button style={styles.action} disabled={!selectedStudent} label="Check-In" onPress={onManual} />
+              <Button style={styles.action} disabled={!selectedStudent} label="Check-Out" variant="outline" onPress={onManualExit} />
+              <Button style={styles.action} label="Sync Queue" variant="outline" onPress={flushQueue} />
+            </View>
+          </Card>
+          <ThemedText type="smallBold" style={styles.section}>Parent absence alerts</ThemedText>
+          {absences.length === 0 ? (
+            <EmptyState title="No parent absence alerts" message="Reported absences for this route will appear here." />
+          ) : absences.map((item) => (
+            <Card key={item.id} style={styles.absenceCard}>
+              <ThemedText type="smallBold">{item.student_name ?? `Student ${item.student_id}`}</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">{item.absence_date}</ThemedText>
+              {item.reason ? <ThemedText>{item.reason}</ThemedText> : null}
             </Card>
           ))}
-        </ScrollView>
-      )}
-    </SafeAreaView>
+        </>
+      ) : null}
+    </ScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, paddingHorizontal: 16 },
-  title: { fontSize: 24, fontWeight: '700', marginTop: 8, marginBottom: 10 },
-  content: { gap: 8, paddingBottom: 20 },
-  section: { marginTop: 10, fontWeight: '700' },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  input: { borderWidth: 1, borderColor: '#c8d4e6', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#fff' },
-  missed: { color: '#b3261e', fontWeight: '700' },
+  metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  studentCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  studentCopy: { flex: 1 },
+  manualCard: { gap: Spacing.three },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  action: { flexGrow: 1, minWidth: 110 },
+  section: { fontSize: 17 },
+  absenceCard: { gap: 4 },
 });
