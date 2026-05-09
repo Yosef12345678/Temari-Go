@@ -10,8 +10,8 @@ import { authorize } from '../middlewares/role.middleware';
 
 const router = Router();
 
-// Initialize payment (admin only — web dashboard; parents use mobile app)
-router.post('/pay', authMiddleware, authorize('admin'), initializePayment);
+// Initialize payment (parents + admin)
+router.post('/pay', authMiddleware, authorize('admin', 'parent'), initializePayment);
 
 // Chapa webhook handler (public endpoint - configured in Chapa dashboard)
 // Configure this URL in Chapa Dashboard: Settings > Webhooks > Add Webhook URL

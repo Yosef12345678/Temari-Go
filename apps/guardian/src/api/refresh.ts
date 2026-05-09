@@ -1,6 +1,8 @@
 import { request } from './http';
 import { getRefreshToken, setTokens } from './tokenStore';
 import type { ApiEnvelope } from './envelope';
+import { writeTokens } from '@/src/storage/secureTokens';
+import type { ApiError } from './http';
 
 type RefreshData = {
   accessToken: string;
@@ -11,7 +13,7 @@ let inFlight: Promise<boolean> | null = null;
 
 /**
  * Tries to refresh the access token once. Returns true if session updated.
- * If refresh fails, clears tokens (forces re-login).
+ * Only clears tokens when the refresh token is definitely invalid/expired.
  */
 export async function refreshAndUpdateSession(): Promise<boolean> {
   if (inFlight) return inFlight;
@@ -29,10 +31,20 @@ export async function refreshAndUpdateSession(): Promise<boolean> {
       const accessToken = res?.data?.accessToken;
       const rotatedRefresh = res?.data?.refreshToken;
       if (!accessToken) return false;
-      setTokens({ accessToken, refreshToken: rotatedRefresh ?? refreshToken });
+      const next = { accessToken, refreshToken: rotatedRefresh ?? refreshToken };
+      setTokens(next);
+      // Keep persisted session in sync (so app restarts don't resurrect an expired access token).
+      await writeTokens(next);
       return true;
-    } catch {
-      setTokens(null);
+    } catch (e: unknown) {
+      const err = e as Partial<ApiError> & { code?: unknown };
+      const code = typeof err.code === 'string' ? err.code : undefined;
+      const status = typeof err.status === 'number' ? err.status : undefined;
+
+      // Only force re-login when the refresh token is invalid/expired (or missing).
+      if (status === 401 && (code === 'INVALID_TOKEN' || code === 'TOKEN_EXPIRED' || code === 'UNAUTHORIZED' || !code)) {
+        setTokens(null);
+      }
       return false;
     } finally {
       inFlight = null;

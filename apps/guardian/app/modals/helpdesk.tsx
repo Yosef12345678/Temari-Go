@@ -3,12 +3,14 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { BellRing, ChevronDown, ChevronUp, CircleDollarSign, MapPinned, UserRoundCheck } from 'lucide-react-native';
 import { Image } from 'expo-image';
+import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 export default function HelpDeskModal() {
+  const { t } = useTranslation();
   const router = useRouter();
   const borderColor = useThemeColor({}, 'border');
   const cardBackground = useThemeColor({}, 'background');
@@ -19,44 +21,44 @@ export default function HelpDeskModal() {
   const helpSections = [
     {
       key: 'tracking',
-      title: 'How to track your child',
+      title: t('helpdesk.trackingTitle'),
       icon: <MapPinned color={iconColor} size={16} />,
       steps: [
-        'Open the Children tab and select your child.',
-        'Tap Live Tracking on the child details screen.',
-        'Use Retry Check if location data does not refresh.',
+        t('helpdesk.trackingStep1'),
+        t('helpdesk.trackingStep2'),
+        t('helpdesk.trackingStep3'),
       ],
     },
     {
       key: 'notifications',
-      title: 'Notifications not working?',
+      title: t('helpdesk.notificationsTitle'),
       icon: <BellRing color={iconColor} size={16} />,
       steps: [
-        'Confirm app notification permission is enabled.',
-        'Disable battery optimization for this app.',
-        'Make sure mobile data or Wi-Fi is active.',
-        'Pull down to refresh the Notifications tab.',
-        'Log out and sign in again to refresh your session.',
+        t('helpdesk.notificationsStep1'),
+        t('helpdesk.notificationsStep2'),
+        t('helpdesk.notificationsStep3'),
+        t('helpdesk.notificationsStep4'),
+        t('helpdesk.notificationsStep5'),
       ],
     },
     {
       key: 'billing',
-      title: 'Billing and payment issues',
+      title: t('helpdesk.billingTitle'),
       icon: <CircleDollarSign color={iconColor} size={16} />,
       steps: [
-        'Refresh the Billing tab after making a payment.',
-        'If a payment fails but money is deducted, wait a few minutes and check again.',
-        'Share the transaction reference with admin if the status remains incorrect.',
+        t('helpdesk.billingStep1'),
+        t('helpdesk.billingStep2'),
+        t('helpdesk.billingStep3'),
       ],
     },
     {
       key: 'access',
-      title: 'No access to Billing or Notifications',
+      title: t('helpdesk.accessTitle'),
       icon: <UserRoundCheck color={iconColor} size={16} />,
       steps: [
-        'Your account must have at least one student assigned by admin.',
-        'Contact admin and request student assignment to your account.',
-        'Tap Retry Check after assignment to refresh access.',
+        t('helpdesk.accessStep1'),
+        t('helpdesk.accessStep2'),
+        t('helpdesk.accessStep3'),
       ],
     },
   ] as const;
@@ -64,9 +66,9 @@ export default function HelpDeskModal() {
   return (
     <ThemedView style={styles.container}>
       <View style={[styles.header, { borderBottomColor: borderColor }]}>
-        <ThemedText type="defaultSemiBold">Help Desk</ThemedText>
+        <ThemedText type="defaultSemiBold">{t('helpdesk.title')}</ThemedText>
         <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.closeButton}>
-          <ThemedText type="link">Close</ThemedText>
+          <ThemedText type="link">{t('common.cancel')}</ThemedText>
         </Pressable>
       </View>
       <ScrollView contentContainerStyle={styles.body}>
@@ -76,9 +78,9 @@ export default function HelpDeskModal() {
             style={styles.heroImage}
             contentFit="contain"
           />
-          <ThemedText type="subtitle">How can we help?</ThemedText>
+          <ThemedText type="subtitle">{t('helpdesk.heroTitle')}</ThemedText>
           <ThemedText style={{ color: muted }}>
-            Tap any topic below to expand steps. You can open Live Chat directly from Settings.
+            {t('helpdesk.heroSubtitle')}
           </ThemedText>
         </View>
 

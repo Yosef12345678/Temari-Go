@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowRight, CircleDollarSign, Mail, UserRound } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -11,7 +12,9 @@ import { useMe } from '@/src/hooks/useMe';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 export default function PayScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
+  const params = useLocalSearchParams<{ invoiceId?: string; amount?: string; studentId?: string; dueDate?: string }>();
   const me = useMe();
   const initPay = useInitPay();
   const tint = useThemeColor({}, 'tint');
@@ -20,17 +23,17 @@ export default function PayScreen() {
   const errorColor = useThemeColor({}, 'destructive');
   const iconColor = useThemeColor({}, 'icon');
 
-  const [student_id, setStudentId] = useState(String((me.data as any)?.default_student_id ?? ''));
-  const [amount, setAmount] = useState('');
+  const invoiceId = String(params.invoiceId ?? '').trim();
+  const presetAmount = String(params.amount ?? '').trim();
+  const presetStudentId = String(params.studentId ?? '').trim();
+
+  const [amount, setAmount] = useState(presetAmount);
   const [email, setEmail] = useState(String(me.data?.email ?? ''));
   const [full_name, setFullName] = useState(String((me.data as any)?.name ?? ''));
 
-  const amountNumber = useMemo(() => Number(amount), [amount]);
   const canSubmit =
     Boolean(me.data?.id) &&
-    student_id.trim().length > 0 &&
-    Number.isFinite(amountNumber) &&
-    amountNumber > 0 &&
+    invoiceId.length > 0 &&
     email.trim().length > 3 &&
     full_name.trim().length > 0 &&
     !initPay.isPending;
@@ -38,48 +41,60 @@ export default function PayScreen() {
   return (
     <ThemedView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollBody} keyboardShouldPersistTaps="handled">
-        <ThemedText type="title">Make a Payment</ThemedText>
-        <ThemedText>Secure checkout for invoices and transport fees.</ThemedText>
+        <ThemedText type="title">{t('payScreen.title')}</ThemedText>
+        <ThemedText>{t('payScreen.subtitle')}</ThemedText>
 
         <Card style={[styles.formCard, { borderColor }]}>
           <CardHeader>
-            <CardTitle>Payment Details</CardTitle>
+            <CardTitle>{t('payScreen.details')}</CardTitle>
           </CardHeader>
           <CardContent style={styles.formBody}>
             <View style={styles.field}>
-              <ThemedText type="defaultSemiBold">Student ID</ThemedText>
+              <ThemedText type="defaultSemiBold">{t('payScreen.invoiceId')}</ThemedText>
               <TextInput
-                value={student_id}
-                onChangeText={setStudentId}
+                value={invoiceId}
+                editable={false}
+                selectTextOnFocus={false}
                 style={[styles.input, { borderColor, backgroundColor: inputBackground }]}
-                placeholder="Enter student id"
+                placeholder={t('payScreen.invoiceIdPlaceholder')}
               />
             </View>
             <View style={styles.field}>
-              <ThemedText type="defaultSemiBold">Amount</ThemedText>
+              <ThemedText type="defaultSemiBold">{t('payScreen.amount')}</ThemedText>
               <View style={[styles.inputWithIcon, { borderColor, backgroundColor: inputBackground }]}>
                 <CircleDollarSign color={iconColor} size={16} />
-                <TextInput value={amount} onChangeText={setAmount} style={styles.inputInner} placeholder="100" keyboardType="numeric" />
+                <TextInput
+                  value={amount}
+                  onChangeText={setAmount}
+                  editable={false}
+                  selectTextOnFocus={false}
+                  style={styles.inputInner}
+                  placeholder={t('payScreen.amount')}
+                  keyboardType="numeric"
+                />
               </View>
+              {presetStudentId ? (
+                <ThemedText style={styles.helperText}>{t('payScreen.studentLabel', { id: presetStudentId })}</ThemedText>
+              ) : null}
             </View>
             <View style={styles.field}>
-              <ThemedText type="defaultSemiBold">Email</ThemedText>
+              <ThemedText type="defaultSemiBold">{t('payScreen.email')}</ThemedText>
               <View style={[styles.inputWithIcon, { borderColor, backgroundColor: inputBackground }]}>
                 <Mail color={iconColor} size={16} />
                 <TextInput
                   value={email}
                   onChangeText={setEmail}
                   style={styles.inputInner}
-                  placeholder="payer email"
+                  placeholder={t('payScreen.emailPlaceholder')}
                   autoCapitalize="none"
                 />
               </View>
             </View>
             <View style={styles.field}>
-              <ThemedText type="defaultSemiBold">Full Name</ThemedText>
+              <ThemedText type="defaultSemiBold">{t('payScreen.fullName')}</ThemedText>
               <View style={[styles.inputWithIcon, { borderColor, backgroundColor: inputBackground }]}>
                 <UserRound color={iconColor} size={16} />
-                <TextInput value={full_name} onChangeText={setFullName} style={styles.inputInner} placeholder="payer name" />
+                <TextInput value={full_name} onChangeText={setFullName} style={styles.inputInner} placeholder={t('payScreen.fullNamePlaceholder')} />
               </View>
             </View>
           </CardContent>
@@ -87,7 +102,7 @@ export default function PayScreen() {
 
         {initPay.error ? (
           <ThemedText style={[styles.errorText, { color: errorColor }]}>
-            {(initPay.error as any)?.message ?? 'Payment initiation failed. Please try again.'}
+            {(initPay.error as any)?.message ?? t('payScreen.initFailed')}
           </ThemedText>
         ) : null}
 
@@ -96,9 +111,7 @@ export default function PayScreen() {
           disabled={!canSubmit}
           onPress={async () => {
             const res = await initPay.mutateAsync({
-              parent_id: String(me.data?.id),
-              student_id: student_id.trim(),
-              amount: amountNumber,
+              invoice_id: invoiceId,
               email: email.trim(),
               full_name: full_name.trim(),
             });
@@ -109,7 +122,7 @@ export default function PayScreen() {
           }}
           style={[styles.button, { backgroundColor: tint }, !canSubmit && styles.buttonDisabled]}>
           <View style={styles.buttonInner}>
-            <ThemedText type="defaultSemiBold">{initPay.isPending ? 'Starting…' : 'Continue to checkout'}</ThemedText>
+            <ThemedText type="defaultSemiBold">{initPay.isPending ? t('payScreen.starting') : t('payScreen.continueCheckout')}</ThemedText>
             <ArrowRight color="#111827" size={16} />
           </View>
         </Pressable>
@@ -143,6 +156,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 0,
   },
+  helperText: { opacity: 0.78, fontSize: 13 },
   button: {
     marginTop: 8,
     paddingVertical: 12,

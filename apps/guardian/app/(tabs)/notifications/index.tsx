@@ -4,6 +4,7 @@ import { BellRing, Bus, MapPin, UserCheck } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
+import { useTranslation } from 'react-i18next';
 
 import { RestrictedTabContent } from '@/components/access/restricted-tab-content';
 import { ThemedText } from '@/components/themed-text';
@@ -21,6 +22,7 @@ type NotificationSection = {
 };
 
 export default function NotificationsTab() {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const access = useParentAccess();
@@ -35,8 +37,8 @@ export default function NotificationsTab() {
   const heroBackground = useThemeColor({ light: '#eef4ff', dark: '#0f1d34' }, 'background');
   const highlightBackground = useThemeColor({ light: '#eaf2ff', dark: '#132238' }, 'background');
   const sections = React.useMemo(
-    () => groupNotificationsByDate((notifications.data?.data ?? []) as NotificationItem[]),
-    [notifications.data?.data]
+    () => groupNotificationsByDate((notifications.data?.data ?? []) as NotificationItem[], t),
+    [notifications.data?.data, t]
   );
   const latestId = notifications.data?.data?.[0]?.id;
 
@@ -45,20 +47,20 @@ export default function NotificationsTab() {
       <RestrictedTabContent
         resolving={access.isResolving}
         restricted={access.isRestricted}
-        title="Student access required"
-        subtitle="Notifications are available after an admin assigns at least one student to your account."
+        title={t('notificationsTab.restrictedTitle')}
+        subtitle={t('notificationsTab.restrictedSubtitle')}
         onRetry={() => {
           void access.refetch();
         }}>
       <View style={[styles.headerCard, { borderColor, backgroundColor: heroBackground }]}>
-        <ThemedText type="title">Notifications</ThemedText>
-        <ThemedText style={{ color: mutedText }}>Route updates, attendance events, and billing alerts.</ThemedText>
+        <ThemedText type="title">{t('notificationsTab.title')}</ThemedText>
+        <ThemedText style={{ color: mutedText }}>{t('notificationsTab.subtitle')}</ThemedText>
       </View>
 
-      {notifications.isLoading ? <ThemedText>Loading…</ThemedText> : null}
+      {notifications.isLoading ? <ThemedText>{t('common.loading')}</ThemedText> : null}
       {notifications.error ? (
         <ThemedText style={[styles.errorText, { color: errorColor }]}>
-          {(notifications.error as any)?.message ?? 'Failed to load notifications'}
+          {(notifications.error as any)?.message ?? t('notificationsTab.failedLoad')}
         </ThemedText>
       ) : null}
 
@@ -78,7 +80,7 @@ export default function NotificationsTab() {
           const isRead = Boolean(item.read);
           const isHighlighted = String(item.id) === String(latestId);
           const status = resolveStatus(item, iconColor);
-          const action = resolveNotificationAction(item);
+          const action = resolveNotificationAction(item, t);
 
           return (
             <Card
@@ -96,13 +98,13 @@ export default function NotificationsTab() {
                     <ThemedText
                       lightColor={isRead ? '#334155' : '#ffffff'}
                       darkColor={isRead ? '#cbd5e1' : '#020617'}>
-                      {isRead ? 'Read' : 'Unread'}
+                      {isRead ? t('notificationsTab.read') : t('notificationsTab.unread')}
                     </ThemedText>
                   </Badge>
                 </View>
                 {item.body ? <ThemedText>{item.body}</ThemedText> : null}
                 <View style={styles.metaRow}>
-                  <ThemedText style={styles.timestamp}>{formatTimestamp(item.createdAt)}</ThemedText>
+                  <ThemedText style={styles.timestamp}>{formatTimestamp(item.createdAt, t)}</ThemedText>
                   {status.route ? (
                     <View style={styles.routeTag}>
                       <Image
@@ -110,7 +112,7 @@ export default function NotificationsTab() {
                         style={styles.routeIcon}
                         contentFit="contain"
                       />
-                      <ThemedText style={styles.routeText}>Route {status.route}</ThemedText>
+                      <ThemedText style={styles.routeText}>{t('notificationsTab.routeLabel', { route: status.route })}</ThemedText>
                     </View>
                   ) : null}
                 </View>
@@ -121,7 +123,7 @@ export default function NotificationsTab() {
                     onPress={() => markRead.mutate(String(item.id))}
                     style={[styles.button, { backgroundColor: tint }]}>
                     <ThemedText type="defaultSemiBold">
-                      {markRead.isPending ? 'Marking…' : 'Mark as read'}
+                      {markRead.isPending ? t('notificationsTab.marking') : t('notificationsTab.markAsRead')}
                     </ThemedText>
                   </Pressable>
                 ) : null}
@@ -156,8 +158,8 @@ export default function NotificationsTab() {
                   style={styles.emptyImage}
                   contentFit="contain"
                 />
-                <ThemedText type="defaultSemiBold">No notifications yet</ThemedText>
-                <ThemedText style={styles.emptyText}>Updates about bus routes, attendance, and billing will appear here.</ThemedText>
+                <ThemedText type="defaultSemiBold">{t('notificationsTab.emptyTitle')}</ThemedText>
+                <ThemedText style={styles.emptyText}>{t('notificationsTab.emptySubtitle')}</ThemedText>
               </CardContent>
             </Card>
           )
@@ -227,7 +229,7 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 14 },
 });
 
-function groupNotificationsByDate(items: NotificationItem[]): NotificationSection[] {
+function groupNotificationsByDate(items: NotificationItem[], t: (k: string) => string): NotificationSection[] {
   const grouped = new Map<string, NotificationItem[]>();
 
   const sorted = [...items].sort((a, b) => {
@@ -238,7 +240,7 @@ function groupNotificationsByDate(items: NotificationItem[]): NotificationSectio
 
   for (const item of sorted) {
     const created = new Date(String(item.createdAt ?? ''));
-    const key = Number.isNaN(created.getTime()) ? 'Recent' : sectionDateLabel(created);
+    const key = Number.isNaN(created.getTime()) ? t('notificationsTab.recent') : sectionDateLabel(created, t);
     const list = grouped.get(key) ?? [];
     list.push(item);
     grouped.set(key, list);
@@ -247,18 +249,18 @@ function groupNotificationsByDate(items: NotificationItem[]): NotificationSectio
   return Array.from(grouped.entries()).map(([title, data]) => ({ title, data }));
 }
 
-function sectionDateLabel(value: Date) {
+function sectionDateLabel(value: Date, t: (k: string) => string) {
   const now = new Date();
   const sameDay =
     now.getFullYear() === value.getFullYear() &&
     now.getMonth() === value.getMonth() &&
     now.getDate() === value.getDate();
-  if (sameDay) return 'Today';
+  if (sameDay) return t('notificationsTab.today');
   return value.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'short' });
 }
 
-function formatTimestamp(value: string | undefined) {
-  if (!value) return 'Time unavailable';
+function formatTimestamp(value: string | undefined, t: (k: string) => string) {
+  if (!value) return t('notificationsTab.timeUnavailable');
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
   return date.toLocaleString([], {
@@ -296,21 +298,22 @@ function resolveStatus(item: NotificationItem, iconColor: string) {
   return { icon: <BellRing size={16} color={iconColor} />, route };
 }
 
-function resolveNotificationAction(item: NotificationItem):
-  | { label: string; type: 'tracking' | 'child' | 'billing'; studentId?: string }
-  | null {
+function resolveNotificationAction(
+  item: NotificationItem,
+  t: (k: string) => string
+): { label: string; type: 'tracking' | 'child' | 'billing'; studentId?: string } | null {
   const source = item as Record<string, unknown>;
   const studentId = String(source.studentId ?? source.student_id ?? source.childId ?? source.child_id ?? '');
   const text = `${String(item.title ?? '')} ${String(item.body ?? '')} ${String(item.type ?? '')}`.toLowerCase();
 
   if ((text.includes('bus') || text.includes('route') || text.includes('approach')) && studentId) {
-    return { label: 'Open live tracking', type: 'tracking', studentId };
+    return { label: t('notificationsTab.actionTracking'), type: 'tracking', studentId };
   }
   if ((text.includes('board') || text.includes('reach') || text.includes('attendance')) && studentId) {
-    return { label: 'Open student details', type: 'child', studentId };
+    return { label: t('notificationsTab.actionChild'), type: 'child', studentId };
   }
   if (text.includes('payment') || text.includes('invoice') || text.includes('due')) {
-    return { label: 'Open billing', type: 'billing' };
+    return { label: t('notificationsTab.actionBilling'), type: 'billing' };
   }
   return null;
 }

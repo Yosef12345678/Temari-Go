@@ -2,6 +2,7 @@ import React from 'react';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { CalendarClock, CheckCircle2 } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -10,6 +11,7 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 import { useAttendanceByStudent } from '@/src/hooks/useAttendance';
 
 export default function ChildAttendanceScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const q = useAttendanceByStudent(String(id ?? ''));
   const borderColor = useThemeColor({}, 'border');
@@ -20,9 +22,9 @@ export default function ChildAttendanceScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: 'Attendance' }} />
-      {q.isLoading ? <ThemedText>Loading…</ThemedText> : null}
-      {q.error ? <ThemedText style={[styles.errorText, { color: errorColor }]}>{(q.error as any)?.message ?? 'Failed'}</ThemedText> : null}
+      <Stack.Screen options={{ title: t('attendanceScreen.title') }} />
+      {q.isLoading ? <ThemedText>{t('common.loading')}</ThemedText> : null}
+      {q.error ? <ThemedText style={[styles.errorText, { color: errorColor }]}>{(q.error as any)?.message ?? t('attendanceScreen.failed')}</ThemedText> : null}
       <FlatList
         data={(q.data ?? []) as any[]}
         keyExtractor={(item: any, idx) => String(item.id ?? idx)}
@@ -39,15 +41,15 @@ export default function ChildAttendanceScreen() {
                   <ThemedText type="defaultSemiBold">{eventType}</ThemedText>
                 </View>
                 <Badge variant={isBoard ? 'default' : 'secondary'}>
-                  <ThemedText>{isBoard ? 'Pickup' : 'Drop/Other'}</ThemedText>
+                  <ThemedText>{isBoard ? t('attendanceScreen.pickup') : t('attendanceScreen.dropOther')}</ThemedText>
                 </Badge>
               </View>
-              <ThemedText style={{ color: mutedText }}>{formatTimestamp(String(item.timestamp ?? item.createdAt ?? ''))}</ThemedText>
-              <ThemedText>Bus: {String(item.busId ?? item.bus_id ?? '-')}</ThemedText>
+              <ThemedText style={{ color: mutedText }}>{formatTimestamp(String(item.timestamp ?? item.createdAt ?? ''), t)}</ThemedText>
+              <ThemedText>{t('attendanceScreen.busLabel', { busId: String(item.busId ?? item.bus_id ?? '-') })}</ThemedText>
             </View>
           );
         }}
-        ListEmptyComponent={q.isLoading ? null : <ThemedText>No attendance records yet.</ThemedText>}
+        ListEmptyComponent={q.isLoading ? null : <ThemedText>{t('attendanceScreen.empty')}</ThemedText>}
       />
     </ThemedView>
   );
@@ -61,9 +63,9 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 14 },
 });
 
-function formatTimestamp(value: string) {
+function formatTimestamp(value: string, t: (k: string) => string) {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value || 'Time unavailable';
+  if (Number.isNaN(date.getTime())) return value || t('attendanceScreen.timeUnavailable');
   return date.toLocaleString([], {
     weekday: 'short',
     day: 'numeric',

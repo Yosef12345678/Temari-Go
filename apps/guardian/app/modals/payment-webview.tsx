@@ -2,12 +2,14 @@ import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { WebView } from 'react-native-webview';
+import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 export default function PaymentWebViewModal() {
+  const { t } = useTranslation();
   const router = useRouter();
   const params = useLocalSearchParams<{ url?: string }>();
   const borderColor = useThemeColor({}, 'border');
@@ -34,15 +36,15 @@ export default function PaymentWebViewModal() {
   return (
     <ThemedView style={styles.container}>
       <View style={[styles.header, { borderBottomColor: borderColor }]}>
-        <ThemedText type="defaultSemiBold">Chapa Checkout</ThemedText>
+        <ThemedText type="defaultSemiBold">{t('paymentWebview.title')}</ThemedText>
         <Pressable onPress={() => router.back()} style={styles.closeButton}>
-          <ThemedText type="link">Close</ThemedText>
+          <ThemedText type="link">{t('common.cancel')}</ThemedText>
         </Pressable>
       </View>
 
       {!url ? (
         <View style={styles.empty}>
-          <ThemedText>No checkout URL provided.</ThemedText>
+          <ThemedText>{t('paymentWebview.noUrl')}</ThemedText>
         </View>
       ) : (
         <WebView

@@ -3,6 +3,7 @@ import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, View } from '
 import { CircleHelp, Globe, LogOut, MessageCircleMore, MoonStar, ShieldCheck, UserRound } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -18,6 +19,7 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 import { i18n, setAppLanguage } from '@/src/i18n';
 
 export default function ProfileTab() {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { logout } = useAuth();
@@ -43,10 +45,10 @@ export default function ProfileTab() {
     };
   }, []);
 
-  const accountName = String(me.data?.name ?? 'Guardian');
+  const accountName = String(me.data?.name ?? t('profileTab.guardian'));
   const accountEmail = String(me.data?.email ?? '—');
   const accountPhone = String(me.data?.phone_number ?? '—');
-  const role = String(me.data?.role ?? 'Parent');
+  const role = String(me.data?.role ?? t('profileTab.parent'));
   const serverLang = String(me.data?.language_preference ?? '—');
 
   return (
@@ -55,13 +57,13 @@ export default function ProfileTab() {
         contentContainerStyle={styles.scrollBody}
         refreshControl={<RefreshControl refreshing={me.isRefetching} onRefresh={() => void me.refetch()} />}>
         <View style={[styles.titleCard, { borderColor, backgroundColor: heroBackground }]}>
-          <ThemedText type="title">Profile</ThemedText>
-          <ThemedText style={{ color: mutedText }}>Manage account, preferences, and support.</ThemedText>
+          <ThemedText type="title">{t('profileTab.title')}</ThemedText>
+          <ThemedText style={{ color: mutedText }}>{t('profileTab.subtitle')}</ThemedText>
         </View>
 
-        {me.isLoading ? <ThemedText>Loading…</ThemedText> : null}
+        {me.isLoading ? <ThemedText>{t('common.loading')}</ThemedText> : null}
         {me.error ? (
-          <ThemedText style={[styles.errorText, { color: errorColor }]}>{(me.error as any)?.message ?? 'Failed'}</ThemedText>
+          <ThemedText style={[styles.errorText, { color: errorColor }]}>{(me.error as any)?.message ?? t('profileTab.failed')}</ThemedText>
         ) : null}
 
         <Card style={[styles.heroCard, { borderColor, backgroundColor: cardBackground }]}>
@@ -80,7 +82,7 @@ export default function ProfileTab() {
                   <ThemedText>{role}</ThemedText>
                 </Badge>
                 <Badge variant="outline">
-                  <ThemedText>Lang: {serverLang}</ThemedText>
+                  <ThemedText>{t('profileTab.langBadge', { language: serverLang })}</ThemedText>
                 </Badge>
               </View>
             </View>
@@ -89,18 +91,18 @@ export default function ProfileTab() {
 
         <Card style={[styles.sectionCard, { borderColor, backgroundColor: cardBackground }]}>
           <CardHeader>
-            <CardTitle>Account</CardTitle>
+            <CardTitle>{t('profileTab.account')}</CardTitle>
           </CardHeader>
           <CardContent style={styles.sectionContent}>
             <SettingRow
               icon={<UserRound color={iconColor} size={16} />}
-              label="Phone"
+              label={t('profileTab.phone')}
               value={accountPhone}
               borderColor={borderColor}
             />
             <SettingRow
               icon={<ShieldCheck color={iconColor} size={16} />}
-              label="Role"
+              label={t('profileTab.role')}
               value={role}
               borderColor={borderColor}
             />
@@ -109,15 +111,15 @@ export default function ProfileTab() {
 
         <Card style={[styles.sectionCard, { borderColor, backgroundColor: cardBackground }]}>
           <CardHeader>
-            <CardTitle>Preferences</CardTitle>
+            <CardTitle>{t('profileTab.preferences')}</CardTitle>
           </CardHeader>
           <CardContent style={styles.sectionContent}>
             <View style={[styles.prefRow, { borderColor }]}>
               <View style={styles.prefLeft}>
                 <Globe color={iconColor} size={16} />
                 <View>
-                  <ThemedText type="defaultSemiBold">Language</ThemedText>
-                  <ThemedText>Select app language</ThemedText>
+                  <ThemedText type="defaultSemiBold">{t('profileTab.language')}</ThemedText>
+                  <ThemedText>{t('profileTab.selectLanguage')}</ThemedText>
                 </View>
               </View>
               <View style={styles.langActions}>
@@ -127,7 +129,7 @@ export default function ProfileTab() {
                   onPress={() => {
                     void setAppLanguage('en');
                   }}>
-                  <ThemedText>English</ThemedText>
+                  <ThemedText>{t('profileTab.english')}</ThemedText>
                 </Button>
                 <Button
                   variant={language === 'amharic' ? 'default' : 'outline'}
@@ -146,15 +148,15 @@ export default function ProfileTab() {
               <View style={styles.prefLeft}>
                 <MoonStar color={iconColor} size={16} />
                 <View>
-                  <ThemedText type="defaultSemiBold">Theme</ThemedText>
-                  <ThemedText>Dark mode toggle (placeholder)</ThemedText>
+                  <ThemedText type="defaultSemiBold">{t('profileTab.theme')}</ThemedText>
+                  <ThemedText>{t('profileTab.themePlaceholder')}</ThemedText>
                 </View>
               </View>
               <Switch
                 checked={themeEnabled}
                 onCheckedChange={(checked) => {
                   setThemeEnabled(Boolean(checked));
-                  Alert.alert('Theme toggle', 'Theme switching will be connected in the next iteration.');
+                  Alert.alert(t('profileTab.themeToggleTitle'), t('profileTab.themeToggleBody'));
                 }}
               />
             </View>
@@ -163,7 +165,7 @@ export default function ProfileTab() {
 
         <Card style={[styles.sectionCard, { borderColor, backgroundColor: cardBackground }]}>
           <CardHeader>
-            <CardTitle>Support</CardTitle>
+            <CardTitle>{t('profileTab.support')}</CardTitle>
           </CardHeader>
           <CardContent style={styles.sectionContent}>
             <Pressable
@@ -173,8 +175,8 @@ export default function ProfileTab() {
               <View style={styles.prefLeft}>
                 <CircleHelp color={iconColor} size={16} />
                 <View>
-                  <ThemedText type="defaultSemiBold">Help Desk</ThemedText>
-                  <ThemedText>View step-by-step help topics</ThemedText>
+                  <ThemedText type="defaultSemiBold">{t('profileTab.helpDesk')}</ThemedText>
+                  <ThemedText>{t('profileTab.helpDeskSubtitle')}</ThemedText>
                 </View>
               </View>
             </Pressable>
@@ -185,8 +187,8 @@ export default function ProfileTab() {
               <View style={styles.prefLeft}>
                 <MessageCircleMore color={iconColor} size={16} />
                 <View>
-                  <ThemedText type="defaultSemiBold">Live Chat</ThemedText>
-                  <ThemedText>Chat directly with support</ThemedText>
+                  <ThemedText type="defaultSemiBold">{t('profileTab.liveChat')}</ThemedText>
+                  <ThemedText>{t('profileTab.liveChatSubtitle')}</ThemedText>
                 </View>
               </View>
             </Pressable>
@@ -195,7 +197,7 @@ export default function ProfileTab() {
 
         <Button variant="destructive" onPress={() => void logout()}>
           <LogOut color="#ffffff" size={16} />
-          <ThemedText>Log out</ThemedText>
+          <ThemedText>{t('profileTab.logout')}</ThemedText>
         </Button>
       </ScrollView>
     </ThemedView>

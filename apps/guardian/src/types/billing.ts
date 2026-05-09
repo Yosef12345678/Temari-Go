@@ -34,9 +34,16 @@ export type PaymentListResponse = {
 };
 
 export type PayInitRequest = {
-  parent_id: string;
-  student_id: string;
-  amount: number;
+  /**
+   * Preferred: invoice-based payment initiation (prevents arbitrary payments).
+   */
+  invoice_id?: string;
+  /**
+   * Legacy fields (admin/manual). The backend may ignore/override these for parents.
+   */
+  parent_id?: string;
+  student_id?: string;
+  amount?: number;
   email: string;
   full_name?: string;
   first_name?: string;

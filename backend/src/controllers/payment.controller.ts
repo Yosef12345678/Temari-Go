@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { PaymentService } from '../services/payment.service';
 import { InvoiceService } from '../services/invoice.service';
 import { db } from '../../models';
+import { Op } from 'sequelize';
 
 const CHAPA_URL = process.env.CHAPA_URL || 'https://api.chapa.co/v1/transaction/initialize';
 const CHAPA_AUTH = process.env.CHAPA_AUTH || '';
@@ -27,23 +28,94 @@ export const initializePayment = async (req: Request, res: Response, next: NextF
     }
 
     // Validation
-    const { parent_id, student_id, amount, email, full_name, first_name, last_name, currency } = req.body;
+    const { invoice_id, parent_id, student_id, amount, email, full_name, first_name, last_name, currency } = req.body;
 
-    if (!parent_id || !student_id || amount == null || amount === '' || !email) {
-      return res.status(400).json({
-        success: false,
-        code: 'MISSING_FIELDS',
-        message: 'parent_id, student_id, amount, and email are required',
-      });
+    const isAdmin = req.user?.role === 'admin';
+    const authedUserId = Number(req.user?.id);
+    if (!Number.isFinite(authedUserId)) {
+      return res.status(401).json({ success: false, code: 'UNAUTHORIZED', message: 'Authentication required' });
     }
 
-    const numAmount = parseFloat(amount);
-    if (Number.isNaN(numAmount) || numAmount <= 0) {
-      return res.status(400).json({
-        success: false,
-        code: 'INVALID_AMOUNT',
-        message: 'amount must be a positive number',
-      });
+    // Parents must pay for an existing invoice (no arbitrary payments).
+    // Admins can still use the legacy flow for dashboard/manual payments.
+    let resolvedParentId: number | null = null;
+    let resolvedStudentId: number | null = null;
+    let resolvedAmount: number | null = null;
+
+    if (invoice_id != null && String(invoice_id).trim()) {
+      const invoiceIdNum = Number(invoice_id);
+      if (!Number.isFinite(invoiceIdNum) || invoiceIdNum <= 0) {
+        return res.status(400).json({ success: false, code: 'INVALID_INVOICE_ID', message: 'invoice_id must be a valid number' });
+      }
+
+      const { Invoice } = db as any;
+      const invoice = await Invoice.findByPk(invoiceIdNum);
+      if (!invoice) {
+        return res.status(404).json({ success: false, code: 'INVOICE_NOT_FOUND', message: 'Invoice not found' });
+      }
+
+      if (!isAdmin && Number(invoice.parent_id) !== authedUserId) {
+        return res.status(403).json({ success: false, code: 'FORBIDDEN', message: 'Access denied.' });
+      }
+      const status = String(invoice.status ?? '').toLowerCase();
+      if (status !== 'pending' && status !== 'overdue') {
+        return res.status(400).json({ success: false, code: 'INVOICE_NOT_PAYABLE', message: 'Invoice is not payable' });
+      }
+
+      resolvedParentId = Number(invoice.parent_id);
+      resolvedStudentId = Number(invoice.student_id);
+      resolvedAmount = Number(invoice.amount);
+    } else {
+      // Legacy flow. Still enforce parent can only pay their own id,
+      // and can only pay when there is at least one pending/overdue invoice.
+      if (!parent_id || !student_id || amount == null || amount === '' || !email) {
+        return res.status(400).json({
+          success: false,
+          code: 'MISSING_FIELDS',
+          message: 'invoice_id OR (parent_id, student_id, amount, and email) are required',
+        });
+      }
+
+      const pid = parseInt(parent_id, 10);
+      const sid = parseInt(student_id, 10);
+      const numAmount = parseFloat(amount);
+
+      if (!Number.isFinite(pid) || !Number.isFinite(sid)) {
+        return res.status(400).json({ success: false, code: 'INVALID_FIELDS', message: 'parent_id and student_id must be valid numbers' });
+      }
+      if (Number.isNaN(numAmount) || numAmount <= 0) {
+        return res.status(400).json({
+          success: false,
+          code: 'INVALID_AMOUNT',
+          message: 'amount must be a positive number',
+        });
+      }
+
+      if (!isAdmin && pid !== authedUserId) {
+        return res.status(403).json({ success: false, code: 'FORBIDDEN', message: 'Access denied.' });
+      }
+
+      // Enforce "pay only when an invoice is sent"
+      if (!isAdmin) {
+        const { Invoice } = db as any;
+        const invoice = await Invoice.findOne({
+          where: { parent_id: pid, student_id: sid, status: { [Op.in]: ['pending', 'overdue'] } },
+        });
+        if (!invoice) {
+          return res.status(400).json({
+            success: false,
+            code: 'NO_INVOICE',
+            message: 'No payable invoice found for this student.',
+          });
+        }
+        // If UI still sends arbitrary amount, ignore it and use invoice amount.
+        resolvedAmount = Number(invoice.amount);
+      } else {
+        resolvedAmount = numAmount;
+      }
+
+      resolvedParentId = pid;
+      resolvedStudentId = sid;
     }
 
     const emailTrimmed = String(email).trim().toLowerCase();
@@ -62,9 +134,9 @@ export const initializePayment = async (req: Request, res: Response, next: NextF
 
     // Create payment record in database with pending status
     const payment = await PaymentService.createPayment({
-      parent_id: parseInt(parent_id, 10),
-      student_id: parseInt(student_id, 10),
-      amount: numAmount,
+      parent_id: resolvedParentId as number,
+      student_id: resolvedStudentId as number,
+      amount: resolvedAmount as number,
       chapa_transaction_id: txRef, // Store tx_ref initially, will be updated with actual transaction_id from webhook
       status: 'pending',
     });
@@ -82,7 +154,7 @@ export const initializePayment = async (req: Request, res: Response, next: NextF
 
     // Initialize payment with Chapa
     const data = {
-      amount: numAmount.toString(),
+      amount: String(resolvedAmount),
       currency: (currency && String(currency).trim()) || 'ETB',
       email: emailTrimmed,
       first_name: chapaFirst,

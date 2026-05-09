@@ -39,7 +39,8 @@ export default function ChildDetailScreen() {
   const student = (q.data?.student ?? {}) as Record<string, unknown>;
   const busId = String(student.busId ?? student.bus_id ?? '');
   const driverId = String(student.driver_id ?? student.driverId ?? '').trim() || null;
-  const driverName = String(student.driver_name ?? student.driverName ?? '').trim() || 'Driver';
+  const driverName = String(student.driver_name ?? student.driverName ?? '').trim() || t('childDetail.driver');
+  const driverLabel = driverId ? `${driverName} (#${driverId})` : driverName;
   const current = useBusCurrent(busId, { refetchIntervalMs: 8_000 });
   const history = useBusHistory(busId, { limit: 6 });
   const attendance = useAttendanceByStudent(String(id ?? ''));
@@ -116,8 +117,8 @@ export default function ChildDetailScreen() {
     if (eligibility.data && !eligibility.data.canRate) {
       const when = eligibility.data.nextEligibleAt
         ? new Date(eligibility.data.nextEligibleAt).toLocaleDateString()
-        : 'later';
-      Alert.alert(t('childDetail.ratingAvailableLaterTitle'), t('childDetail.ratingAvailableLaterBody', { driverName, when }));
+        : t('childDetail.unavailable');
+      Alert.alert(t('childDetail.ratingAvailableLaterTitle'), t('childDetail.ratingAvailableLaterBody', { driverName: driverLabel, when }));
       return;
     }
 
@@ -126,7 +127,7 @@ export default function ChildDetailScreen() {
         { driver_id: String(driverId), rating },
         {
           onSuccess: () => {
-            Alert.alert(t('childDetail.thanksTitle'), t('childDetail.thanksBody', { driverName }));
+            Alert.alert(t('childDetail.thanksTitle'), t('childDetail.thanksBody', { driverName: driverLabel }));
             void eligibility.refetch();
           },
           onError: (err: any) => {
@@ -138,7 +139,7 @@ export default function ChildDetailScreen() {
       );
     };
 
-    Alert.alert(t('childDetail.ratePromptTitle', { driverName }), t('childDetail.ratePromptBody'), [
+    Alert.alert(t('childDetail.ratePromptTitle', { driverName: driverLabel }), t('childDetail.ratePromptBody'), [
       { text: '1', onPress: () => submit(1) },
       { text: '2', onPress: () => submit(2) },
       { text: '3', onPress: () => submit(3) },
@@ -146,7 +147,7 @@ export default function ChildDetailScreen() {
       { text: '5', onPress: () => submit(5) },
       { text: t('common.cancel'), style: 'cancel' },
     ]);
-  }, [driverId, driverName, eligibility, rateDriver, t]);
+  }, [driverId, driverLabel, eligibility, rateDriver, t]);
 
   return (
     <ThemedView style={styles.container}>
@@ -166,10 +167,10 @@ export default function ChildDetailScreen() {
         <Tabs value={tabValue} onValueChange={setTabValue} style={styles.tabsRoot}>
           <TabsList style={styles.tabsList}>
             <TabsTrigger value="overview">
-              <ThemedText>Overview</ThemedText>
+              <ThemedText>{t('childDetail.overview')}</ThemedText>
             </TabsTrigger>
             <TabsTrigger value="timeline">
-              <ThemedText>Route Timeline</ThemedText>
+              <ThemedText>{t('childDetail.routeTimeline')}</ThemedText>
             </TabsTrigger>
           </TabsList>
 
@@ -236,6 +237,7 @@ export default function ChildDetailScreen() {
                     }
                     onPress={handleRateDriver}
                     borderColor={borderColor}
+                    disabled={!driverId}
                   />
                   <ActionRow
                     icon={<CircleHelp color={iconColor} size={18} />}
@@ -253,6 +255,12 @@ export default function ChildDetailScreen() {
                 <CardContent style={styles.detailsGrid}>
                   <InfoTile icon={<IdCard color={iconColor} size={14} />} label={t('childDetail.studentId')} value={studentCode} borderColor={borderColor} />
                   <InfoTile icon={<GraduationCap color={iconColor} size={14} />} label={t('childDetail.grade')} value={studentGrade} borderColor={borderColor} />
+                  <InfoTile
+                    icon={<IdCard color={iconColor} size={14} />}
+                    label={t('childDetail.driver')}
+                    value={driverId ? driverLabel : t('childDetail.notAssigned')}
+                    borderColor={borderColor}
+                  />
                   <InfoTile
                     icon={<School color={iconColor} size={14} />}
                     label={t('childDetail.rollNumber')}
@@ -391,14 +399,21 @@ function ActionRow({
   title,
   onPress,
   borderColor,
+  disabled,
 }: {
   icon: React.ReactNode;
   title: string;
   onPress: () => void;
   borderColor: string;
+  disabled?: boolean;
 }) {
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={title} style={[styles.actionRow, { borderColor }]} onPress={onPress}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      disabled={disabled}
+      style={[styles.actionRow, { borderColor }, disabled ? styles.actionRowDisabled : null]}
+      onPress={onPress}>
       <View style={styles.actionLeft}>
         {icon}
         <ThemedText type="defaultSemiBold">{title}</ThemedText>
@@ -433,6 +448,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  actionRowDisabled: { opacity: 0.55 },
   actionLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   detailsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   infoTile: { width: '48%', borderWidth: 1, borderRadius: 12, padding: 12, gap: 6 },

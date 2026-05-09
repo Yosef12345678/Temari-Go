@@ -3,11 +3,13 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import { X } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 
 import { ThemedView } from '@/components/themed-view';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 export default function LiveChatModal() {
+  const { t } = useTranslation();
   const router = useRouter();
   const borderColor = useThemeColor({}, 'border');
   const iconColor = useThemeColor({}, 'text');
@@ -23,7 +25,7 @@ export default function LiveChatModal() {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
     <base href="${widgetOrigin}/" />
-    <title>Parent Support Chat</title>
+    <title>${t('liveChat.title')}</title>
     <style>
       html, body {
         margin: 0;
@@ -91,7 +93,7 @@ export default function LiveChatModal() {
     </script>
   </body>
 </html>`,
-    [organizationId, widgetOrigin]
+    [organizationId, widgetOrigin, t]
   );
 
   const closeChatModal = useCallback(() => {
@@ -128,7 +130,7 @@ export default function LiveChatModal() {
       />
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Close live chat"
+        accessibilityLabel={t('liveChat.closeA11y')}
         onPress={closeChatModal}
         style={[styles.closeFab, { borderColor, backgroundColor: fabBackground }]}>
         <X size={18} color={iconColor} />
