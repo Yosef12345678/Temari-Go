@@ -13,6 +13,7 @@ import { Geofence } from './geofence.model';
 import { Attendance } from './attendance.model';
 import { Location } from './location.model';
 import { Route } from './route.model';
+import { RouteRun } from './routeRun.model';
 import { AlcoholTest } from './alcoholTest.model';
 
 @Table({ tableName: 'buses', underscored: true, timestamps: true })
@@ -48,6 +49,9 @@ export class Bus extends Model {
 
   @HasMany(() => Route)
   routes!: Route[];
+
+  @HasMany(() => RouteRun)
+  routeRuns!: RouteRun[];
 
   @HasMany(() => AlcoholTest)
   alcoholTests!: AlcoholTest[];

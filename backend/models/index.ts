@@ -17,6 +17,8 @@ import { Invoice } from './invoice.model';
 import { Notification } from './notification.model';
 import { Route } from './route.model';
 import { RouteAssignment } from './routeAssignment.model';
+import { RouteRun } from './routeRun.model';
+import { RouteRunAssignment } from './routeRunAssignment.model';
 import { School } from './school.model';
 import { Device } from './device.model';
 import { ParentAbsence } from './parentAbsence.model';
@@ -45,6 +47,8 @@ export const sequelize = new Sequelize(dbConfig.url, {
     Notification,
     Route,
     RouteAssignment,
+    RouteRun,
+    RouteRunAssignment,
     School,
     Device,
     ParentAbsence,
@@ -76,6 +80,8 @@ export const db = {
   Notification,
   Route,
   RouteAssignment,
+  RouteRun,
+  RouteRunAssignment,
   School,
   Device,
   ParentAbsence,

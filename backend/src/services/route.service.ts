@@ -2,15 +2,6 @@ import { db } from '../../models';
 import { getDirections, type DirectionsResult, type LatLng } from '../utils/google-maps';
 import { GeofenceService } from './geofence.service';
 const { Route, RouteAssignment, Bus, Student } = db;
-const ROUTE_WORKFLOW_ATTRIBUTES = [
-	'lifecycle_status',
-	'accepted_at',
-	'arrived_at',
-	'picked_up_at',
-	'completed_at',
-	'cancelled_at',
-	'cancel_reason',
-] as const;
 
 /** Default radius (km) to group students into the same pickup zone. ~200m. */
 const DEFAULT_ZONE_RADIUS_KM = 0.2;
@@ -137,7 +128,7 @@ export class RouteService {
 		}
 
 		const routes = await Route.findAll({
-			attributes: ['id', 'bus_id', 'name', 'start_time', 'end_time', ...ROUTE_WORKFLOW_ATTRIBUTES],
+			attributes: ['id', 'bus_id', 'name', 'start_time', 'end_time'],
 			include: [
 				{
 					model: Bus,
@@ -158,7 +149,7 @@ export class RouteService {
 	 */
 	static async getRouteById(id: number) {
 		const route = await Route.findByPk(id, {
-			attributes: ['id', 'bus_id', 'name', 'start_time', 'end_time', ...ROUTE_WORKFLOW_ATTRIBUTES],
+			attributes: ['id', 'bus_id', 'name', 'start_time', 'end_time'],
 			include: [
 				{
 					model: Bus,
@@ -276,7 +267,7 @@ export class RouteService {
 		const zoneRadiusKm = options.zoneRadiusKm ?? DEFAULT_ZONE_RADIUS_KM;
 
 		const route = await Route.findByPk(id, {
-			attributes: ['id', 'bus_id', 'name', 'start_time', 'end_time', ...ROUTE_WORKFLOW_ATTRIBUTES],
+			attributes: ['id', 'bus_id', 'name', 'start_time', 'end_time'],
 			include: [
 				{
 					model: Bus,
@@ -447,7 +438,7 @@ export class RouteService {
 
 		// Reload route with updated assignments for response
 		const updatedRoute = await Route.findByPk(id, {
-			attributes: ['id', 'bus_id', 'name', 'start_time', 'end_time', ...ROUTE_WORKFLOW_ATTRIBUTES],
+			attributes: ['id', 'bus_id', 'name', 'start_time', 'end_time'],
 			include: [
 				{
 					model: Bus,
@@ -502,7 +493,7 @@ export class RouteService {
 		directions: DirectionsResult | null;
 	}> {
 		const route = await Route.findByPk(id, {
-			attributes: ['id', 'bus_id', 'name', 'start_time', 'end_time', ...ROUTE_WORKFLOW_ATTRIBUTES],
+			attributes: ['id', 'bus_id', 'name', 'start_time', 'end_time'],
 			include: [
 				{
 					model: Bus,

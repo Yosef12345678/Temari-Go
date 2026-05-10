@@ -2,28 +2,11 @@ import { Op } from 'sequelize';
 
 import { db } from '../../models';
 import { publishRealtimeEvent } from '../realtime/realtime.events';
+import { RouteRunService, type RouteRunStatus } from './routeRun.service';
 
-const { Bus, Route, RouteAssignment, Student } = db;
+const { Bus, RouteRun } = db;
 
-export type DriverJobStatus =
-  | 'assigned'
-  | 'accepted'
-  | 'arrived'
-  | 'picked_up'
-  | 'completed'
-  | 'cancelled';
-
-const ACTIVE_JOB_STATUSES: DriverJobStatus[] = ['assigned', 'accepted', 'arrived', 'picked_up'];
-const STOP_BASE_MINUTES = 6;
-
-const VALID_TRANSITIONS: Record<DriverJobStatus, DriverJobStatus[]> = {
-  assigned: ['accepted', 'cancelled'],
-  accepted: ['arrived', 'cancelled'],
-  arrived: ['picked_up', 'cancelled'],
-  picked_up: ['completed', 'cancelled'],
-  completed: [],
-  cancelled: [],
-};
+export type DriverJobStatus = RouteRunStatus;
 
 function parseNumericId(raw: unknown, code: string): number {
   const parsed = Number(raw);
@@ -33,54 +16,12 @@ function parseNumericId(raw: unknown, code: string): number {
   return parsed;
 }
 
-function parseJobStatusFilter(rawStatus: unknown): DriverJobStatus[] | undefined {
-  if (typeof rawStatus !== 'string' || !rawStatus.trim()) return undefined;
-  const status = rawStatus.trim().toLowerCase();
-  if (status === 'active') return ACTIVE_JOB_STATUSES;
-  const normalized = status === 'pickup' ? 'picked_up' : status;
-  const allowed: DriverJobStatus[] = ['assigned', 'accepted', 'arrived', 'picked_up', 'completed', 'cancelled'];
-  if (!allowed.includes(normalized as DriverJobStatus)) {
-    throw {
-      status: 400,
-      code: 'INVALID_STATUS_FILTER',
-      message: 'status must be one of active, assigned, accepted, arrived, pickup, completed, cancelled.',
-    };
-  }
-  return [normalized as DriverJobStatus];
-}
-
 async function getDriverBusIds(driverId: number): Promise<number[]> {
   const buses = await Bus.findAll({
     where: { driver_id: driverId },
     attributes: ['id'],
   });
   return buses.map((bus: any) => Number(bus.id));
-}
-
-function withETAs(route: any) {
-  const json = route.toJSON();
-  const assignments = Array.isArray(json.routeAssignments) ? json.routeAssignments : [];
-  const sorted = [...assignments].sort((a, b) => (a.pickup_order ?? 0) - (b.pickup_order ?? 0));
-  let cumulativeMinutes = 8;
-  const stops = sorted.map((item: any) => {
-    cumulativeMinutes += STOP_BASE_MINUTES;
-    return {
-      assignment_id: item.id,
-      student_id: item.student_id,
-      pickup_order: item.pickup_order ?? null,
-      eta_minutes: cumulativeMinutes,
-      eta_at: new Date(Date.now() + cumulativeMinutes * 60 * 1000).toISOString(),
-      student_name: item.student?.full_name ?? null,
-      pickup_latitude: item.pickup_latitude ?? null,
-      pickup_longitude: item.pickup_longitude ?? null,
-    };
-  });
-
-  return {
-    ...json,
-    route_stops_eta: stops,
-    traffic_multiplier: 1.0,
-  };
 }
 
 export class DriverService {
@@ -113,52 +54,8 @@ export class DriverService {
     const busIds = await getDriverBusIds(driverId);
     if (busIds.length === 0) return [];
 
-    const statusFilter = parseJobStatusFilter(statusRaw);
-    const where: Record<string, unknown> = { bus_id: { [Op.in]: busIds } };
-    if (statusFilter) where.lifecycle_status = { [Op.in]: statusFilter };
-
-    const routes = await Route.findAll({
-      where,
-      attributes: [
-        'id',
-        'bus_id',
-        'name',
-        'start_time',
-        'end_time',
-        'lifecycle_status',
-        'accepted_at',
-        'arrived_at',
-        'picked_up_at',
-        'completed_at',
-        'cancelled_at',
-        'cancel_reason',
-        'updated_at',
-      ],
-      include: [
-        {
-          model: Bus,
-          as: 'bus',
-          attributes: ['id', 'bus_number'],
-        },
-        {
-          model: RouteAssignment,
-          as: 'routeAssignments',
-          attributes: ['id', 'student_id', 'pickup_latitude', 'pickup_longitude', 'pickup_order'],
-          required: false,
-          include: [
-            {
-              model: Student,
-              as: 'student',
-              attributes: ['id', 'full_name', 'grade'],
-              required: false,
-            },
-          ],
-        },
-      ],
-      order: [['updated_at', 'DESC']],
-    });
-
-    return routes.map((route: any) => withETAs(route));
+    const today = new Date().toISOString().slice(0, 10);
+    return RouteRunService.getRunsForDriverBuses(busIds, today, statusRaw);
   }
 
   static async getJobForDriver(
@@ -174,51 +71,14 @@ export class DriverService {
       throw { status: 404, code: 'JOB_NOT_FOUND', message: 'Job not found for this driver.' };
     }
 
-    const route = await Route.findOne({
-      where: { id: jobId, bus_id: { [Op.in]: busIds } },
-      attributes: [
-        'id',
-        'bus_id',
-        'name',
-        'start_time',
-        'end_time',
-        'lifecycle_status',
-        'accepted_at',
-        'arrived_at',
-        'picked_up_at',
-        'completed_at',
-        'cancelled_at',
-        'cancel_reason',
-        'updated_at',
-      ],
-      include: [
-        {
-          model: Bus,
-          as: 'bus',
-          attributes: ['id', 'bus_number'],
-        },
-        {
-          model: RouteAssignment,
-          as: 'routeAssignments',
-          attributes: ['id', 'student_id', 'pickup_latitude', 'pickup_longitude', 'pickup_order'],
-          required: false,
-          include: [
-            {
-              model: Student,
-              as: 'student',
-              attributes: ['id', 'full_name', 'grade'],
-              required: false,
-            },
-          ],
-        },
-      ],
-    });
-
-    if (!route) {
-      throw { status: 404, code: 'JOB_NOT_FOUND', message: 'Job not found for this driver.' };
+    try {
+      return await RouteRunService.getRouteRunByIdForBuses(jobId, busIds);
+    } catch (err: any) {
+      if (err?.code === 'RUN_NOT_FOUND') {
+        throw { status: 404, code: 'JOB_NOT_FOUND', message: 'Job not found for this driver.' };
+      }
+      throw err;
     }
-
-    return withETAs(route);
   }
 
   static async transitionJobStatus(
@@ -236,45 +96,36 @@ export class DriverService {
       throw { status: 404, code: 'JOB_NOT_FOUND', message: 'Job not found for this driver.' };
     }
 
-    const route = await Route.findOne({
+    const scoped = await RouteRun.findOne({
       where: { id: jobId, bus_id: { [Op.in]: busIds } },
+      attributes: ['id'],
     });
-    if (!route) {
+    if (!scoped) {
       throw { status: 404, code: 'JOB_NOT_FOUND', message: 'Job not found for this driver.' };
     }
 
-    const currentStatus = ((route as any).lifecycle_status ?? 'assigned') as DriverJobStatus;
-    if (currentStatus === targetStatus) return route.toJSON();
-
-    const allowedNext = VALID_TRANSITIONS[currentStatus] ?? [];
-    if (!allowedNext.includes(targetStatus)) {
-      throw {
-        status: 409,
-        code: 'INVALID_JOB_TRANSITION',
-        message: `Cannot move job from ${currentStatus} to ${targetStatus}.`,
-      };
+    const reason = typeof cancelReason === 'string' ? cancelReason : undefined;
+    let output: Awaited<ReturnType<typeof RouteRunService.transitionStatus>>;
+    try {
+      output = await RouteRunService.transitionStatus(jobId, targetStatus, reason);
+    } catch (err: any) {
+      if (err?.code === 'INVALID_RUN_TRANSITION') {
+        throw {
+          status: err.status ?? 409,
+          code: 'INVALID_JOB_TRANSITION',
+          message: typeof err.message === 'string' ? err.message.replace(/\brun\b/gi, 'job') : 'Invalid job transition.',
+        };
+      }
+      throw err;
     }
 
-    const now = new Date();
-    const updates: Record<string, unknown> = { lifecycle_status: targetStatus };
-    if (targetStatus === 'accepted') updates.accepted_at = now;
-    if (targetStatus === 'arrived') updates.arrived_at = now;
-    if (targetStatus === 'picked_up') updates.picked_up_at = now;
-    if (targetStatus === 'completed') updates.completed_at = now;
-    if (targetStatus === 'cancelled') {
-      const reason = typeof cancelReason === 'string' ? cancelReason.trim() : '';
-      updates.cancelled_at = now;
-      updates.cancel_reason = reason || null;
-    }
-
-    await route.update(updates);
-    const output = withETAs(route);
     publishRealtimeEvent('driver.job.updated', {
       routeId: output.id,
       status: output.lifecycle_status,
       busId: output.bus_id,
       updatedAt: output.updated_at ?? new Date().toISOString(),
     });
+
     return output;
   }
 }

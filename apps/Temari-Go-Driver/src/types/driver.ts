@@ -23,7 +23,9 @@ export type DriverJobAssignment = {
 
 export type DriverJob = {
   id: number;
+  route_id: number;
   bus_id: number;
+  run_date: string;
   name: string;
   lifecycle_status: DriverJobStatus;
   start_time?: string;
@@ -39,7 +41,7 @@ export type DriverJob = {
     id: number;
     bus_number: string;
   };
-  routeAssignments?: DriverJobAssignment[];
+  routeRunAssignments?: DriverJobAssignment[];
   route_stops_eta?: {
     assignment_id: number;
     student_id: number;

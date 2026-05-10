@@ -25,13 +25,6 @@ export interface Route {
   name: string;
   start_time?: string | null;
   end_time?: string | null;
-  lifecycle_status?: 'assigned' | 'accepted' | 'arrived' | 'picked_up' | 'completed' | 'cancelled';
-  accepted_at?: string | null;
-  arrived_at?: string | null;
-  picked_up_at?: string | null;
-  completed_at?: string | null;
-  cancelled_at?: string | null;
-  cancel_reason?: string | null;
   bus?: Pick<Bus, 'id' | 'bus_number' | 'capacity' | 'driver_id'> | null;
   routeAssignments?: RouteAssignment[];
 }

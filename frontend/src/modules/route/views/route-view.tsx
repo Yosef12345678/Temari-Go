@@ -7,7 +7,7 @@ import { authClient } from '@/lib/auth-client';
 import { useAuth } from '@/hooks/use-auth';
 import { busAPI, type Bus } from '@/lib/bus-api';
 import { studentAPI, type Student } from '@/lib/student-api';
-import { driverAPI, type DriverJobStatus } from '@/lib/driver-api';
+import { routeRunAPI, type RouteRun, type RouteRunStatus } from '@/lib/routeRun-api';
 import {
   routeAPI,
   type Route,
@@ -83,7 +83,7 @@ import {
 } from '@/components/ui/tooltip';
 import {
   Bus as BusIcon,
-  CheckCircle2,
+  CalendarDays,
   Info,
   Loader2,
   Map,
@@ -158,10 +158,26 @@ export function RouteView() {
   const [directionsLoadingRouteId, setDirectionsLoadingRouteId] = useState<
     number | null
   >(null);
-  const [jobStatusLoadingRouteId, setJobStatusLoadingRouteId] = useState<number | null>(null);
   const [directionsSummary, setDirectionsSummary] = useState<string | null>(
     null,
   );
+
+  // Route runs (daily instances)
+  const [activeTab, setActiveTab] = useState<'templates' | 'runs'>('templates');
+  const [routeRuns, setRouteRuns] = useState<RouteRun[]>([]);
+  const [routeRunsLoading, setRouteRunsLoading] = useState(false);
+  const [runDateFilter, setRunDateFilter] = useState<string>(() => {
+    const today = new Date();
+    return today.toISOString().slice(0, 10);
+  });
+  const [createRunDialogOpen, setCreateRunDialogOpen] = useState(false);
+  const [createRunForm, setCreateRunForm] = useState({
+    route_id: 0,
+    run_date: '',
+  });
+  const [createRunLoading, setCreateRunLoading] = useState(false);
+  const [deleteRunId, setDeleteRunId] = useState<number | null>(null);
+  const [deleteRunLoading, setDeleteRunLoading] = useState(false);
 
   const token = accessToken ?? undefined;
   const busFilterId = busFilter ? Number(busFilter) : undefined;
@@ -201,6 +217,22 @@ export function RouteView() {
     }
   }, [token, busFilterId]);
 
+  const loadRouteRuns = useCallback(async () => {
+    setRouteRunsLoading(true);
+    try {
+      const data = await routeRunAPI.getAll(token, {
+        run_date: runDateFilter,
+      });
+      setRouteRuns(Array.isArray(data) ? data : []);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to load route runs';
+      toast.error(msg);
+      setRouteRuns([]);
+    } finally {
+      setRouteRunsLoading(false);
+    }
+  }, [token, runDateFilter]);
+
   useEffect(() => {
     void loadOptions();
   }, [loadOptions]);
@@ -208,6 +240,12 @@ export function RouteView() {
   useEffect(() => {
     void loadRoutes();
   }, [loadRoutes]);
+
+  useEffect(() => {
+    if (activeTab === 'runs') {
+      void loadRouteRuns();
+    }
+  }, [loadRouteRuns, activeTab]);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -502,7 +540,7 @@ export function RouteView() {
     assignments.filter((a) => a.route_id === route.id).length ??
     0;
 
-  const lifecycleLabel = (status: DriverJobStatus | undefined) => {
+  const runLifecycleLabel = (status: RouteRunStatus | undefined) => {
     switch (status) {
       case 'accepted':
         return 'Accepted';
@@ -520,53 +558,80 @@ export function RouteView() {
     }
   };
 
-  const getNextTransitionAction = (
-    status: DriverJobStatus | undefined,
-  ): { action: 'accept' | 'arrive' | 'pickup' | 'complete'; label: string } | null => {
-    switch (status ?? 'assigned') {
-      case 'assigned':
-        return { action: 'accept', label: 'Mark accepted' };
+  const runStatusVariant = (status: RouteRunStatus | undefined) => {
+    switch (status) {
       case 'accepted':
-        return { action: 'arrive', label: 'Mark arrived' };
+        return 'default';
       case 'arrived':
-        return { action: 'pickup', label: 'Mark pickup' };
+        return 'secondary';
       case 'picked_up':
-        return { action: 'complete', label: 'Mark complete' };
+        return 'default';
+      case 'completed':
+        return 'secondary';
+      case 'cancelled':
+        return 'destructive';
+      case 'assigned':
       default:
-        return null;
+        return 'outline';
     }
   };
 
-  const handleJobStatusChange = async (
-    route: Route,
-    action: 'accept' | 'arrive' | 'pickup' | 'complete' | 'cancel',
-  ) => {
-    const bus = route.bus ?? findBusById(route.bus_id);
-    const driverId = bus?.driver_id;
-    if (!driverId) {
-      toast.error('Assign a driver to this route bus first.');
-      return;
-    }
+  const openCreateRun = () => {
+    setCreateRunForm({
+      route_id: routes[0]?.id ?? 0,
+      run_date: new Date().toISOString().slice(0, 10),
+    });
+    setCreateRunDialogOpen(true);
+  };
 
-    setJobStatusLoadingRouteId(route.id);
-    setError(null);
+  const closeCreateRun = () => {
+    setCreateRunDialogOpen(false);
+    setCreateRunLoading(false);
+  };
+
+  const handleCreateRun = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createRunForm.route_id || !createRunForm.run_date) return;
+
+    setCreateRunLoading(true);
     try {
-      const updated = await driverAPI.updateJobStatus(
-        route.id,
-        action,
-        { driver_id: driverId },
+      const created = await routeRunAPI.create(
+        {
+          route_id: createRunForm.route_id,
+          run_date: createRunForm.run_date,
+        },
         token,
       );
-      setRoutes((prev) =>
-        prev.map((r) => (r.id === route.id ? { ...r, ...(updated as Route) } : r)),
-      );
-      toast.success(`Route marked ${action}.`);
+      setRouteRuns((prev) => [created, ...prev]);
+      toast.success('Route run created');
+      closeCreateRun();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to update route status';
-      setError(msg);
+      const msg = err instanceof Error ? err.message : 'Failed to create route run';
       toast.error(msg);
     } finally {
-      setJobStatusLoadingRouteId(null);
+      setCreateRunLoading(false);
+    }
+  };
+
+  const confirmDeleteRun = (id: number) => setDeleteRunId(id);
+  const cancelDeleteRun = () => {
+    setDeleteRunId(null);
+    setDeleteRunLoading(false);
+  };
+
+  const handleDeleteRun = async () => {
+    if (deleteRunId == null) return;
+    setDeleteRunLoading(true);
+    try {
+      await routeRunAPI.delete(deleteRunId, token);
+      setRouteRuns((prev) => prev.filter((r) => r.id !== deleteRunId));
+      cancelDeleteRun();
+      toast.success('Route run deleted');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete route run';
+      toast.error(msg);
+    } finally {
+      setDeleteRunLoading(false);
     }
   };
 
@@ -593,49 +658,116 @@ export function RouteView() {
             Routes
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Plan, optimize, and assign students to bus routes.
+            Manage route templates and daily route runs.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Select
-            value={busFilter || 'all'}
-            onValueChange={(v) => setBusFilter(v === 'all' ? '' : v)}
-          >
-            <SelectTrigger
-              id="route-bus-filter"
-              className="h-9 w-[140px]"
-              aria-label="Filter by bus"
-            >
-              <SelectValue placeholder="All buses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All buses</SelectItem>
-              {buses.map((bus) => (
-                <SelectItem key={bus.id} value={String(bus.id)}>
-                  {bus.bus_number}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void loadRoutes()}
-            disabled={loading}
-            aria-label="Refresh routes"
-          >
-            {loading ? (
-              <Loader2 className="size-4 animate-spin" aria-hidden />
-            ) : (
-              <RefreshCw className="size-4" aria-hidden />
-            )}
-            <span className="ml-2">Refresh</span>
-          </Button>
-          <Button size="sm" onClick={openCreateRoute} aria-label="Create new route">
-            <Plus className="size-4" aria-hidden />
-            <span className="ml-2">New route</span>
-          </Button>
+          {activeTab === 'templates' && (
+            <>
+              <Select
+                value={busFilter || 'all'}
+                onValueChange={(v) => setBusFilter(v === 'all' ? '' : v)}
+              >
+                <SelectTrigger
+                  id="route-bus-filter"
+                  className="h-9 w-[140px]"
+                  aria-label="Filter by bus"
+                >
+                  <SelectValue placeholder="All buses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All buses</SelectItem>
+                  {buses.map((bus) => (
+                    <SelectItem key={bus.id} value={String(bus.id)}>
+                      {bus.bus_number}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void loadRoutes()}
+                disabled={loading}
+                aria-label="Refresh routes"
+              >
+                {loading ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                ) : (
+                  <RefreshCw className="size-4" aria-hidden />
+                )}
+                <span className="ml-2">Refresh</span>
+              </Button>
+              <Button size="sm" onClick={openCreateRoute} aria-label="Create new route">
+                <Plus className="size-4" aria-hidden />
+                <span className="ml-2">New route</span>
+              </Button>
+            </>
+          )}
+          {activeTab === 'runs' && (
+            <>
+              <Input
+                type="date"
+                value={runDateFilter}
+                onChange={(e) => setRunDateFilter(e.target.value)}
+                className="h-9 w-[160px]"
+                aria-label="Filter by run date"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void loadRouteRuns()}
+                disabled={routeRunsLoading}
+                aria-label="Refresh route runs"
+              >
+                {routeRunsLoading ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                ) : (
+                  <RefreshCw className="size-4" aria-hidden />
+                )}
+                <span className="ml-2">Refresh</span>
+              </Button>
+              <Button size="sm" onClick={openCreateRun} aria-label="Create route run">
+                <Plus className="size-4" aria-hidden />
+                <span className="ml-2">New run</span>
+              </Button>
+            </>
+          )}
         </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-2 border-b pb-0">
+        <button
+          type="button"
+          onClick={() => setActiveTab('templates')}
+          className={cn(
+            'px-4 py-2 text-sm font-medium transition-colors relative',
+            activeTab === 'templates'
+              ? 'text-primary'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          Route Templates
+          {activeTab === 'templates' && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('runs')}
+          className={cn(
+            'px-4 py-2 text-sm font-medium transition-colors relative',
+            activeTab === 'runs'
+              ? 'text-primary'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          Route Runs
+          {activeTab === 'runs' && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+          )}
+        </button>
       </div>
 
       {error && (
@@ -644,6 +776,7 @@ export function RouteView() {
         </Alert>
       )}
 
+      {activeTab === 'templates' && (
       <Card>
         <CardHeader className="space-y-4 pb-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -715,9 +848,6 @@ export function RouteView() {
                             <Badge variant="secondary" className="font-normal">
                             {total} student{total !== 1 ? 's' : ''}
                             </Badge>
-                            <Badge variant="outline" className="font-normal">
-                              {lifecycleLabel(route.lifecycle_status)}
-                            </Badge>
                           </div>
                         </div>
                         <TooltipProvider>
@@ -777,33 +907,6 @@ export function RouteView() {
                               </TooltipTrigger>
                               <TooltipContent>Get directions</TooltipContent>
                             </Tooltip>
-                            {getNextTransitionAction(route.lifecycle_status) && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() =>
-                                      void handleJobStatusChange(
-                                        route,
-                                        getNextTransitionAction(route.lifecycle_status)!.action,
-                                      )
-                                    }
-                                    disabled={jobStatusLoadingRouteId === route.id}
-                                    aria-label="Advance job status"
-                                  >
-                                    {jobStatusLoadingRouteId === route.id ? (
-                                      <Loader2 className="size-4 animate-spin" />
-                                    ) : (
-                                      <CheckCircle2 className="size-4" />
-                                    )}
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  {getNextTransitionAction(route.lifecycle_status)!.label}
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
@@ -849,7 +952,6 @@ export function RouteView() {
                   <TableHead>Bus</TableHead>
                   <TableHead>Window</TableHead>
                   <TableHead>Assignments</TableHead>
-                  <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -889,11 +991,6 @@ export function RouteView() {
                           <Users className="size-3 text-muted-foreground" />
                           {total} student{total === 1 ? '' : 's'}
                         </span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="font-normal">
-                          {lifecycleLabel(route.lifecycle_status)}
-                        </Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <TooltipProvider>
@@ -953,33 +1050,6 @@ export function RouteView() {
                               </TooltipTrigger>
                               <TooltipContent>Get directions</TooltipContent>
                             </Tooltip>
-                            {getNextTransitionAction(route.lifecycle_status) && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() =>
-                                      void handleJobStatusChange(
-                                        route,
-                                        getNextTransitionAction(route.lifecycle_status)!.action,
-                                      )
-                                    }
-                                    disabled={jobStatusLoadingRouteId === route.id}
-                                    aria-label="Advance job status"
-                                  >
-                                    {jobStatusLoadingRouteId === route.id ? (
-                                      <Loader2 className="size-4 animate-spin" />
-                                    ) : (
-                                      <CheckCircle2 className="size-4" />
-                                    )}
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  {getNextTransitionAction(route.lifecycle_status)!.label}
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
@@ -1019,6 +1089,133 @@ export function RouteView() {
           )}
         </CardContent>
       </Card>
+      )}
+
+      {/* Route Runs Tab */}
+      {activeTab === 'runs' && (
+        <Card>
+          <CardHeader className="space-y-4 pb-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <CalendarDays className="size-5" />
+                Route Runs
+              </CardTitle>
+              <span className="text-sm text-muted-foreground">
+                {routeRunsLoading
+                  ? 'Loading…'
+                  : `${routeRuns.length} run${routeRuns.length !== 1 ? 's' : ''}`}
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {routeRunsLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton
+                    key={i}
+                    className={cn('h-12 w-full', i === 0 && 'rounded-t-lg')}
+                  />
+                ))}
+              </div>
+            ) : routeRuns.length === 0 ? (
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <CalendarDays className="size-6 text-muted-foreground" />
+                  </EmptyMedia>
+                  <EmptyTitle>No route runs</EmptyTitle>
+                  <EmptyDescription>
+                    Create a route run from a template for a specific date.
+                  </EmptyDescription>
+                </EmptyHeader>
+                <EmptyContent>
+                  <Button size="sm" onClick={openCreateRun}>
+                    <Plus className="size-4" />
+                    Create a route run
+                  </Button>
+                </EmptyContent>
+              </Empty>
+            ) : (
+              <div className="overflow-x-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Route</TableHead>
+                      <TableHead>Bus</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Window</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {routeRuns.map((run) => {
+                      const bus = run.bus ?? findBusById(run.bus_id);
+                      const routeName = routes.find((r) => r.id === run.route_id)?.name ?? `Route #${run.route_id}`;
+                      return (
+                        <TableRow key={run.id}>
+                          <TableCell className="font-mono text-muted-foreground">
+                            {run.id}
+                          </TableCell>
+                          <TableCell className="font-medium">{routeName}</TableCell>
+                          <TableCell>
+                            {bus ? (
+                              <div className="flex items-center gap-1 text-sm">
+                                <BusIcon className="size-3 text-muted-foreground" />
+                                <span>{bus.bus_number}</span>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Unlinked</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-sm">{run.run_date}</span>
+                          </TableCell>
+                          <TableCell>
+                            {run.start_time || run.end_time ? (
+                              <span className="text-sm">
+                                {run.start_time ?? '—'} – {run.end_time ?? '—'}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={runStatusVariant(run.lifecycle_status)} className="font-normal">
+                              {runLifecycleLabel(run.lifecycle_status)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <TooltipProvider>
+                              <div className="flex items-center justify-end gap-1">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => confirmDeleteRun(run.id)}
+                                      aria-label="Delete run"
+                                      className="text-destructive hover:text-destructive"
+                                    >
+                                      <Trash2 className="size-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Delete run</TooltipContent>
+                                </Tooltip>
+                              </div>
+                            </TooltipProvider>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Dialog open={routeDialogOpen} onOpenChange={(open) => !open && closeRouteDialog()}>
         <DialogContent className="sm:max-w-md" aria-describedby="route-form-desc">
@@ -1358,6 +1555,102 @@ export function RouteView() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Create Route Run Dialog */}
+      <Dialog open={createRunDialogOpen} onOpenChange={(open) => !open && closeCreateRun()}>
+        <DialogContent className="sm:max-w-md" aria-describedby="run-form-desc">
+          <DialogHeader>
+            <DialogTitle>New route run</DialogTitle>
+            <DialogDescription id="run-form-desc">
+              Create a daily execution instance from a route template.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreateRun} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="run_route">Route template *</Label>
+              <Select
+                value={createRunForm.route_id ? String(createRunForm.route_id) : ''}
+                onValueChange={(v) =>
+                  setCreateRunForm((f) => ({ ...f, route_id: Number(v) }))
+                }
+                required
+                disabled={routes.length === 0}
+              >
+                <SelectTrigger id="run_route" aria-label="Select route">
+                  <SelectValue placeholder="Select route" />
+                </SelectTrigger>
+                <SelectContent>
+                  {routes.map((route) => (
+                    <SelectItem key={route.id} value={String(route.id)}>
+                      {route.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {routes.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No routes available. Create a route template first.
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="run_date">Run date *</Label>
+              <Input
+                id="run_date"
+                type="date"
+                value={createRunForm.run_date}
+                onChange={(e) =>
+                  setCreateRunForm((f) => ({ ...f, run_date: e.target.value }))
+                }
+                required
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={closeCreateRun} disabled={createRunLoading}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createRunLoading}>
+                {createRunLoading && (
+                  <Loader2 className="size-4 animate-spin mr-2" />
+                )}
+                Create
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Route Run Alert */}
+      <AlertDialog
+        open={deleteRunId != null}
+        onOpenChange={(open) => !open && cancelDeleteRun()}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete route run?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the daily run instance and its student roster. The route template will remain.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteRunLoading}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteRun}
+              disabled={deleteRunLoading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteRunLoading ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {activeTab === 'templates' && (
       <Card className="border-muted/50 bg-muted/30">
         <CardContent className="flex gap-3 p-4">
           <Info className="size-5 shrink-0 text-muted-foreground" />
@@ -1368,10 +1661,12 @@ export function RouteView() {
               <li>Assign students from the list; pickup order can be optimized.</li>
               <li>Use &quot;Optimize&quot; to reorder stops by proximity and reduce drive time.</li>
               <li>Get directions to see the full route on the map.</li>
+              <li>Daily route runs are auto-created from templates at 01:00 UTC.</li>
             </ul>
           </div>
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }

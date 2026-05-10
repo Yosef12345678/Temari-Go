@@ -11,6 +11,7 @@ import { User } from './user.model';
 import { RFIDCard } from './rfidCard.model';
 import { Attendance } from './attendance.model';
 import { RouteAssignment } from './routeAssignment.model';
+import { RouteRunAssignment } from './routeRunAssignment.model';
 import { Payment } from './payment.model';
 import { Geofence } from './geofence.model';
 
@@ -57,6 +58,9 @@ export class Student extends Model {
 
   @HasMany(() => RouteAssignment)
   routeAssignments!: RouteAssignment[];
+
+  @HasMany(() => RouteRunAssignment)
+  routeRunAssignments!: RouteRunAssignment[];
 
   @HasMany(() => Payment)
   payments!: Payment[];

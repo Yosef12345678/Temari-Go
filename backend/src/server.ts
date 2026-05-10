@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import app from './app';
 import { sequelize } from '../models';
 import { startDriverRatingScheduler } from './scheduler/driverRating.scheduler';
+import { startRouteRunScheduler } from './scheduler/routeRun.scheduler';
 
 const PORT = process.env.PORT || 4000;
 
@@ -17,6 +18,7 @@ const startServer = async () => {
     
     // Start scheduled tasks
     startDriverRatingScheduler();
+    startRouteRunScheduler();
     
     app.listen(PORT, () => {
       console.log(`Backend running on http://localhost:${PORT}`);
