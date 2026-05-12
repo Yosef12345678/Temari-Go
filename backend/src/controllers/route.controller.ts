@@ -199,14 +199,24 @@ export const deleteRoute = async (req: Request, res: Response) => {
 export const optimizeRoute = async (req: Request, res: Response) => {
 	try {
 		const { id } = req.params;
-		const { zone_radius_km } = req.body;
+		const { zone_radius_km, preview, stop_overrides } = req.body;
 
 		const options =
 			zone_radius_km != null && !Number.isNaN(Number(zone_radius_km))
 				? { zoneRadiusKm: Number(zone_radius_km) }
 				: undefined;
 
-		const result = await RouteService.optimizeRoute(Number(id), options ?? {});
+		const result = await RouteService.optimizeRoute(Number(id), {
+			...(options ?? {}),
+			preview: Boolean(preview),
+			stopOverrides: Array.isArray(stop_overrides)
+				? stop_overrides.map((override: any) => ({
+						sequence: Number(override.sequence),
+						latitude: Number(override.latitude),
+						longitude: Number(override.longitude),
+				  }))
+				: undefined,
+		});
 
 		return res.status(200).json({
 			success: true,

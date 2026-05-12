@@ -49,6 +49,12 @@ export interface RouteFilters {
 export interface OptimizeRouteOptions {
 	/** Radius in km to group pickups into the same zone. Default 0.2 (~200m). */
 	zoneRadiusKm?: number;
+	preview?: boolean;
+	stopOverrides?: Array<{
+		sequence: number;
+		latitude: number;
+		longitude: number;
+	}>;
 }
 
 export interface WaypointStudent {
@@ -410,23 +416,28 @@ export class RouteService {
 			remaining.splice(best, 1);
 		}
 
-		// Assign pickup_order and persist
-		let order = 0;
-		for (const cluster of ordered) {
-			for (const a of cluster.assignments) {
-				await RouteAssignment.update(
-					{ pickup_order: order },
-					{ where: { id: a.id } }
-				);
-				a.pickup_order = order;
+		const overrideBySequence = new Map<number, { latitude: number; longitude: number }>();
+		for (const override of options.stopOverrides ?? []) {
+			const sequence = Number(override.sequence);
+			const latitude = Number(override.latitude);
+			const longitude = Number(override.longitude);
+			if (
+				Number.isInteger(sequence) &&
+				!Number.isNaN(latitude) &&
+				!Number.isNaN(longitude) &&
+				latitude >= -90 &&
+				latitude <= 90 &&
+				longitude >= -180 &&
+				longitude <= 180
+			) {
+				overrideBySequence.set(sequence, { latitude, longitude });
 			}
-			order++;
 		}
 
 		const waypoints: OptimizedWaypoint[] = ordered.map((cluster, idx) => ({
 			sequence: idx,
-			latitude: cluster.lat,
-			longitude: cluster.lon,
+			latitude: overrideBySequence.get(idx)?.latitude ?? cluster.lat,
+			longitude: overrideBySequence.get(idx)?.longitude ?? cluster.lon,
 			students: cluster.assignments.map((a: any) => ({
 				id: a.student?.id,
 				full_name: a.student?.full_name,
@@ -435,6 +446,31 @@ export class RouteService {
 			})),
 			assignmentIds: cluster.assignments.map((a: any) => a.id),
 		}));
+
+		if (options.preview) {
+			return {
+				route: route.toJSON(),
+				waypoints,
+				summary: {
+					totalStops: waypoints.length,
+					totalStudents: assignments.length,
+					assignmentsWithoutCoords: withoutCoords,
+				},
+			};
+		}
+
+		for (const waypoint of waypoints) {
+			for (const assignmentId of waypoint.assignmentIds) {
+				await RouteAssignment.update(
+					{
+						pickup_order: waypoint.sequence,
+						pickup_latitude: waypoint.latitude,
+						pickup_longitude: waypoint.longitude,
+					},
+					{ where: { id: assignmentId } }
+				);
+			}
+		}
 
 		// Reload route with updated assignments for response
 		const updatedRoute = await Route.findByPk(id, {

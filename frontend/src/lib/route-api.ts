@@ -49,10 +49,37 @@ export interface RouteFilters {
 
 export interface OptimizeRouteOptions {
   zone_radius_km?: number;
+  preview?: boolean;
+  stop_overrides?: RouteStopOverride[];
+}
+
+export interface RouteStopOverride {
+  sequence: number;
+  latitude: number;
+  longitude: number;
+}
+
+export interface RouteOptimizedWaypoint {
+  sequence: number;
+  latitude: number;
+  longitude: number;
+  students: {
+    id: number;
+    full_name: string;
+    grade?: string;
+    parent_id?: number;
+  }[];
+  assignmentIds: number[];
 }
 
 export interface RouteOptimizeResult {
   route: Route;
+  waypoints?: RouteOptimizedWaypoint[];
+  summary?: {
+    totalStops: number;
+    totalStudents: number;
+    assignmentsWithoutCoords: number;
+  };
   // Any additional metadata from backend is left loosely typed
   [key: string]: unknown;
 }
@@ -191,6 +218,8 @@ export const routeAPI = {
       credentials: 'include',
       body: JSON.stringify({
         zone_radius_km: options.zone_radius_km ?? undefined,
+        preview: options.preview ?? undefined,
+        stop_overrides: options.stop_overrides ?? undefined,
       }),
     });
 

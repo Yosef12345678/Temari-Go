@@ -13,6 +13,7 @@ import {
   type Route,
   type CreateRouteInput,
   type UpdateRouteInput,
+  type RouteOptimizedWaypoint,
 } from '@/lib/route-api';
 import {
   routeAssignmentAPI,
@@ -154,6 +155,10 @@ export function RouteView() {
     number | null
   >(null);
   const [optimizeMessage, setOptimizeMessage] = useState<string | null>(null);
+  const [optimizeRadiusMeters, setOptimizeRadiusMeters] = useState(500);
+  const [optimizePreviewRoute, setOptimizePreviewRoute] = useState<Route | null>(null);
+  const [optimizePreviewWaypoints, setOptimizePreviewWaypoints] = useState<RouteOptimizedWaypoint[]>([]);
+  const [optimizeApplyLoading, setOptimizeApplyLoading] = useState(false);
 
   const [directionsLoadingRouteId, setDirectionsLoadingRouteId] = useState<
     number | null
@@ -486,28 +491,78 @@ export function RouteView() {
     try {
       const result = await routeAPI.optimize(
         route.id,
-        { zone_radius_km: 0.5 },
+        { zone_radius_km: optimizeRadiusMeters / 1000, preview: true },
+        token,
+      );
+      setOptimizePreviewRoute(route);
+      setOptimizePreviewWaypoints(result.waypoints ?? []);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to preview optimization';
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setOptimizeLoadingRouteId(null);
+    }
+  };
+
+  const updatePreviewWaypoint = (
+    sequence: number,
+    field: 'latitude' | 'longitude',
+    value: string,
+  ) => {
+    const parsed = Number(value);
+    setOptimizePreviewWaypoints((prev) =>
+      prev.map((waypoint) =>
+        waypoint.sequence === sequence
+          ? { ...waypoint, [field]: Number.isNaN(parsed) ? waypoint[field] : parsed }
+          : waypoint,
+      ),
+    );
+  };
+
+  const closeOptimizePreview = () => {
+    setOptimizePreviewRoute(null);
+    setOptimizePreviewWaypoints([]);
+    setOptimizeApplyLoading(false);
+  };
+
+  const handleApplyOptimizePreview = async () => {
+    if (!optimizePreviewRoute) return;
+    setOptimizeApplyLoading(true);
+    setError(null);
+    try {
+      const result = await routeAPI.optimize(
+        optimizePreviewRoute.id,
+        {
+          zone_radius_km: optimizeRadiusMeters / 1000,
+          stop_overrides: optimizePreviewWaypoints.map((waypoint) => ({
+            sequence: waypoint.sequence,
+            latitude: waypoint.latitude,
+            longitude: waypoint.longitude,
+          })),
+        },
         token,
       );
       const updatedRoute = result.route ?? result;
       setRoutes((prev) =>
         prev.map((r) => (r.id === updatedRoute.id ? { ...r, ...updatedRoute } : r)),
       );
-      if (selectedRouteForAssignments && selectedRouteForAssignments.id === route.id) {
+      if (selectedRouteForAssignments && selectedRouteForAssignments.id === optimizePreviewRoute.id) {
         const refreshed = await routeAssignmentAPI.getByRouteId(
-          route.id,
+          optimizePreviewRoute.id,
           token,
         );
         setAssignments(Array.isArray(refreshed) ? refreshed : []);
       }
-      setOptimizeMessage('Route optimized successfully. Pickup order updated.');
+      closeOptimizePreview();
+      setOptimizeMessage('Route optimized successfully. Pickup order and stop coordinates updated.');
       toast.success('Route optimized');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to optimize route';
       setError(msg);
       toast.error(msg);
     } finally {
-      setOptimizeLoadingRouteId(null);
+      setOptimizeApplyLoading(false);
     }
   };
 
@@ -1509,6 +1564,52 @@ export function RouteView() {
               </form>
             </div>
 
+            <div className="space-y-3 border-t pt-4">
+              <h3 className="text-sm font-medium">Optimize pickup grouping</h3>
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                <div className="space-y-2">
+                  <Label htmlFor="optimize-radius">
+                    Group students within ___ meters
+                  </Label>
+                  <Input
+                    id="optimize-radius"
+                    type="number"
+                    min={50}
+                    max={2000}
+                    step={50}
+                    value={optimizeRadiusMeters}
+                    onChange={(e) =>
+                      setOptimizeRadiusMeters(
+                        Math.max(50, Number(e.target.value) || 50),
+                      )
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Smaller values create more stops. Larger values group more
+                    students together.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    selectedRouteForAssignments &&
+                    handleOptimizeRoute(selectedRouteForAssignments)
+                  }
+                  disabled={
+                    !selectedRouteForAssignments ||
+                    assignments.length === 0 ||
+                    optimizeLoadingRouteId === selectedRouteForAssignments?.id
+                  }
+                >
+                  {optimizeLoadingRouteId === selectedRouteForAssignments?.id && (
+                    <Loader2 className="size-4 animate-spin mr-2" />
+                  )}
+                  Preview grouping
+                </Button>
+              </div>
+            </div>
+
             {(optimizeMessage || directionsSummary) && (
               <div className="border-t pt-3 space-y-2 text-xs text-muted-foreground">
                 {optimizeMessage && <p>{optimizeMessage}</p>}
@@ -1521,6 +1622,131 @@ export function RouteView() {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!optimizePreviewRoute}
+        onOpenChange={(open) => !open && closeOptimizePreview()}
+      >
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" aria-describedby="optimize-preview-desc">
+          <DialogHeader>
+            <DialogTitle>
+              Preview pickup grouping · {optimizePreviewRoute?.name}
+            </DialogTitle>
+            <DialogDescription id="optimize-preview-desc">
+              Review each grouped stop, then adjust the representative stop
+              coordinate before applying it to the route.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+              Grouping radius: {optimizeRadiusMeters} meters ·{' '}
+              {optimizePreviewWaypoints.length} grouped stops
+            </div>
+
+            {optimizePreviewWaypoints.length === 0 ? (
+              <Empty className="rounded-md border border-dashed py-6">
+                <EmptyHeader>
+                  <EmptyTitle>No grouped stops found</EmptyTitle>
+                  <EmptyDescription>
+                    Add students with pickup coordinates before optimizing.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              <div className="space-y-3">
+                {optimizePreviewWaypoints.map((waypoint) => (
+                  <div key={waypoint.sequence} className="rounded-md border p-3">
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium">
+                          Stop {waypoint.sequence + 1}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {waypoint.students.length} student
+                          {waypoint.students.length === 1 ? '' : 's'} grouped
+                        </p>
+                      </div>
+                      <Badge variant="outline">
+                        {waypoint.latitude.toFixed(5)},{' '}
+                        {waypoint.longitude.toFixed(5)}
+                      </Badge>
+                    </div>
+                    <div className="mb-3 flex flex-wrap gap-1">
+                      {waypoint.students.map((student) => (
+                        <Badge key={student.id} variant="secondary">
+                          {student.full_name}
+                        </Badge>
+                      ))}
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor={`stop-${waypoint.sequence}-lat`}>
+                          Representative latitude
+                        </Label>
+                        <Input
+                          id={`stop-${waypoint.sequence}-lat`}
+                          type="number"
+                          step="0.000001"
+                          value={waypoint.latitude}
+                          onChange={(e) =>
+                            updatePreviewWaypoint(
+                              waypoint.sequence,
+                              'latitude',
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor={`stop-${waypoint.sequence}-lng`}>
+                          Representative longitude
+                        </Label>
+                        <Input
+                          id={`stop-${waypoint.sequence}-lng`}
+                          type="number"
+                          step="0.000001"
+                          value={waypoint.longitude}
+                          onChange={(e) =>
+                            updatePreviewWaypoint(
+                              waypoint.sequence,
+                              'longitude',
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeOptimizePreview}
+              disabled={optimizeApplyLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleApplyOptimizePreview}
+              disabled={
+                optimizeApplyLoading || optimizePreviewWaypoints.length === 0
+              }
+            >
+              {optimizeApplyLoading && (
+                <Loader2 className="size-4 animate-spin mr-2" />
+              )}
+              Apply grouping
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

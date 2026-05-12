@@ -186,6 +186,31 @@ export class AttendanceService {
 			attendanceType = hour < 12 ? 'boarding' : 'exiting';
 		}
 
+		const recentScan = await Attendance.findOne({
+			where: {
+				student_id: student.id,
+				bus_id: bus.id,
+				type: attendanceType,
+				timestamp: { [Op.gte]: new Date(Date.now() - 60 * 1000) },
+			},
+		});
+
+		if (recentScan) {
+			return {
+				success: true,
+				attendanceType,
+				studentId: student.id,
+				studentName: student.full_name,
+				geofenceId: matchedGeofence?.id,
+				geofenceName: matchedGeofence
+					? matchedGeofence.type === 'school'
+						? 'School'
+						: 'Home'
+					: undefined,
+				message: 'Already recorded.',
+			};
+		}
+
 		// 5. Create attendance record
 		const attendance = await Attendance.create({
 			student_id: student.id,

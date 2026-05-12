@@ -22,7 +22,7 @@ module.exports = {
     await queryInterface.bulkInsert('Users', [
       {
         name: 'Admin User',
-        email: 'admin@phoenixauth.com',
+        email: 'admintemarigo@gmail.com',
         password: adminPassword,
         role_id: adminRole,
         created_at: new Date(),
