@@ -39,6 +39,7 @@ import {
   Shield,
   UserCircle2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "—";
@@ -198,6 +199,7 @@ export default function DriverPage() {
     try {
       const token = getToken();
       await driverAPI.approveApplication(userId, token);
+      toast.success("Driver verified. Setup email link sent.");
       await loadApplications();
     } catch (err: unknown) {
       setApplicationsError(err instanceof Error ? err.message : "Failed to approve application");

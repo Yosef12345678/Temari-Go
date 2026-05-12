@@ -1,34 +1,50 @@
- "use client";
+"use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { busAPI, type Bus } from "@/lib/bus-api";
 import { studentAPI, type Student } from "@/lib/student-api";
+import { driverAPI, type Driver } from "@/lib/driver-api";
+import { routeAPI, type Route } from "@/lib/route-api";
+import { routeRunAPI, type RouteRun } from "@/lib/routeRun-api";
 import {
   notificationAPI,
   type NotificationItem,
 } from "@/lib/notification-api";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Bell, BusFront, GraduationCap, Shield } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/hooks/use-auth";
+import { DashboardKpiCards } from "@/components/home-components/dashboard-kpi-cards";
+import { RouteActivityChart } from "@/components/home-components/route-activity-chart";
+import { LiveActivity } from "@/components/home-components/live-activity";
+import { FleetOverview } from "@/components/home-components/fleet-overview";
+import { QuickActions } from "@/components/home-components/quick-actions";
+import { Shield } from "lucide-react";
 
-function formatWhen(value: string): string {
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString();
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+function formatDate(): string {
+  return new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 }
 
 export default function HomePage() {
+  const { user } = useAuth();
+
   const [buses, setBuses] = useState<Bus[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [routes, setRoutes] = useState<Route[]>([]);
+  const [routeRuns, setRouteRuns] = useState<RouteRun[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   const [loading, setLoading] = useState(true);
@@ -42,13 +58,27 @@ export default function HomePage() {
       setError(null);
       try {
         const token = getToken();
-        const [{ items }, studentList, notif] = await Promise.all([
+        const today = new Date().toISOString().split("T")[0];
+        const [
+          { items },
+          studentList,
+          driverList,
+          routeList,
+          runList,
+          notif,
+        ] = await Promise.all([
           busAPI.getAll(token, { page: 1, pageSize: 200 }),
           studentAPI.getAll(token),
-          notificationAPI.list({ limit: 10, accessToken: token }),
+          driverAPI.getAll(token),
+          routeAPI.getAll(token),
+          routeRunAPI.getAll(token, { run_date: today }),
+          notificationAPI.list({ limit: 20, accessToken: token }),
         ]);
         setBuses(items);
         setStudents(Array.isArray(studentList) ? studentList : []);
+        setDrivers(Array.isArray(driverList) ? driverList : []);
+        setRoutes(Array.isArray(routeList) ? routeList : []);
+        setRouteRuns(Array.isArray(runList) ? runList : []);
         setNotifications(notif.notifications);
       } catch (err: unknown) {
         const msg =
@@ -62,28 +92,31 @@ export default function HomePage() {
     void load();
   }, []);
 
-  const kpis = useMemo(() => {
-    const activeBuses = buses.length;
-    const totalStudents = students.length;
-    const unreadAlerts = notifications.filter((n) => !n.read_at).length;
-    return { activeBuses, totalStudents, unreadAlerts };
-  }, [buses, students, notifications]);
-
   return (
-    <div className="space-y-6 p-6">
+    <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
+      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Admin overview
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            High-level view of fleet, students, and recent alerts. Detailed
-            operations live under Fleet, Map, Billing, and Notifications.
-          </p>
+          {loading ? (
+            <>
+              <Skeleton className="h-8 w-48" />
+              <Skeleton className="mt-2 h-4 w-64" />
+            </>
+          ) : (
+            <>
+              <h1 className="text-2xl font-semibold tracking-tight">
+                {getGreeting()}, {user?.name?.split(" ")[0] ?? "Admin"}
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {formatDate()} · Here is what is happening across your fleet
+                today.
+              </p>
+            </>
+          )}
         </div>
-        <div className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
           <Shield className="size-3.5" />
-          Admin console — guardians and drivers use the mobile app.
+          Admin console
         </div>
       </div>
 
@@ -93,130 +126,42 @@ export default function HomePage() {
         </Alert>
       )}
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active buses</CardTitle>
-            <BusFront className="size-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-semibold">
-                {kpis.activeBuses}
-              </div>
-            )}
-            <p className="mt-1 text-xs text-muted-foreground">
-              Total buses configured in the system.
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Students</CardTitle>
-            <GraduationCap className="size-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-semibold">
-                {kpis.totalStudents}
-              </div>
-            )}
-            <p className="mt-1 text-xs text-muted-foreground">
-              Total enrolled students linked to bus routes.
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Unread alerts
-            </CardTitle>
-            <Bell className="size-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-semibold">
-                {kpis.unreadAlerts}
-              </div>
-            )}
-            <p className="mt-1 text-xs text-muted-foreground">
-              New notifications for attendance, payments, or safety.
-            </p>
-          </CardContent>
-        </Card>
+      {/* KPI Cards */}
+      <DashboardKpiCards
+        data={{
+          buses,
+          students,
+          drivers,
+          routes,
+          routeRuns,
+          notifications,
+          loading,
+        }}
+      />
+
+      {/* Chart + Activity */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <RouteActivityChart routeRuns={routeRuns} loading={loading} />
+        </div>
+        <div className="lg:col-span-1">
+          <LiveActivity
+            notifications={notifications}
+            routeRuns={routeRuns}
+            loading={loading}
+          />
+        </div>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-          <div className="space-y-1">
-            <CardTitle className="text-base">Recent notifications</CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Latest alerts flowing through the system. See the{" "}
-              <span className="font-medium">Notifications</span> page for full
-              history and filtering.
-            </p>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-8 w-full" />
-              ))}
-            </div>
-          ) : notifications.length === 0 ? (
-            <p className="py-3 text-sm text-muted-foreground">
-              No notifications yet. Attendance, safety, and billing events will
-              appear here as the system goes live.
-            </p>
-          ) : (
-            <div className="max-h-64 overflow-auto rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Message</TableHead>
-                    <TableHead>When</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {notifications.map((n) => {
-                    const isUnread = !n.read_at;
-                    return (
-                      <TableRow key={n.id}>
-                        <TableCell className="text-xs">
-                          <Badge
-                            variant={isUnread ? "default" : "outline"}
-                            className="text-[10px] font-normal"
-                          >
-                            {n.type}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {n.message}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-xs">
-                          {formatWhen(n.sent_at)}
-                        </TableCell>
-                        <TableCell className="text-xs">
-                          {isUnread ? "Unread" : "Read"}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Fleet + Quick Actions */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <FleetOverview buses={buses} routes={routes} loading={loading} />
+        </div>
+        <div className="lg:col-span-1">
+          <QuickActions />
+        </div>
+      </div>
     </div>
   );
 }
