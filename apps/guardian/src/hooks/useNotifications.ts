@@ -47,7 +47,7 @@ export function useMarkNotificationRead() {
         qc.setQueryData(key, value);
       });
     },
-    onSettled: async () => {
+    onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
