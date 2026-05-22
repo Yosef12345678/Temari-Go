@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, type PressableProps } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, type PressableProps } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
@@ -7,18 +7,25 @@ import { useTheme } from '@/hooks/use-theme';
 type ButtonProps = PressableProps & {
   label: string;
   variant?: 'default' | 'outline' | 'destructive';
+  loading?: boolean;
 };
 
-export function Button({ label, variant = 'default', style, ...props }: ButtonProps) {
+export function Button({ label, variant = 'default', loading = false, disabled, style, ...props }: ButtonProps) {
   const theme = useTheme();
   const backgroundColor =
     variant === 'destructive' ? theme.destructive : variant === 'outline' ? theme.background : theme.tint;
   const borderColor = variant === 'outline' ? theme.border : backgroundColor;
   const textColor = variant === 'outline' ? theme.text : '#ffffff';
+  const isDisabled = disabled || loading;
+  const baseStyle = [styles.base, { backgroundColor, borderColor, opacity: isDisabled ? 0.75 : 1 }];
 
   return (
-    <Pressable style={[styles.base, { backgroundColor, borderColor }, style]} {...props}>
-      <ThemedText style={[styles.text, { color: textColor }]}>{label}</ThemedText>
+    <Pressable
+      style={(state) => [baseStyle, typeof style === 'function' ? style(state) : style]}
+      disabled={isDisabled}
+      {...props}
+    >
+      {loading ? <ActivityIndicator color={textColor} size="small" /> : <ThemedText style={[styles.text, { color: textColor }]}>{label}</ThemedText>}
     </Pressable>
   );
 }

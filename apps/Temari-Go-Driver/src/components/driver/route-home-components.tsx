@@ -101,7 +101,15 @@ const NEXT_ACTION: Partial<Record<DriverJobStatus, { action: RouteTransitionActi
   picked_up: { action: 'complete', label: 'Complete route', helper: 'Finish the route after drop-off is done.' },
 };
 
-export function RouteActionPanel({ status, onTransition }: { status: DriverJobStatus; onTransition: (action: RouteTransitionAction) => void }) {
+export function RouteActionPanel({
+  status,
+  onTransition,
+  pendingAction,
+}: {
+  status: DriverJobStatus;
+  onTransition: (action: RouteTransitionAction) => void;
+  pendingAction?: RouteTransitionAction | null;
+}) {
   const next = NEXT_ACTION[status];
 
   return (
@@ -113,7 +121,7 @@ export function RouteActionPanel({ status, onTransition }: { status: DriverJobSt
       {next ? (
         <>
           <ThemedText themeColor="textSecondary">{next.helper}</ThemedText>
-          <Button onPress={() => onTransition(next.action)} label={next.label} />
+          <Button onPress={() => onTransition(next.action)} label={next.label} loading={pendingAction === next.action} />
         </>
       ) : (
         <ThemedText themeColor="textSecondary">No route action is currently available.</ThemedText>

@@ -25,12 +25,15 @@ const isNativeMapAvailable =
   Platform.OS !== 'web' &&
   (UIManager.getViewManagerConfig?.('AIRMap') || UIManager.getViewManagerConfig?.('AIRGoogleMap'));
 
+type RouteTransitionAction = 'accept' | 'arrive' | 'pickup' | 'complete';
+
 export default function RouteScreen() {
   const theme = useTheme();
   const { signOut } = useSession();
   const [loading, setLoading] = useState(true);
   const [job, setJob] = useState<DriverJob | null>(null);
   const [sync, setSync] = useState<RealtimeSnapshot | null>(null);
+  const [pendingAction, setPendingAction] = useState<RouteTransitionAction | null>(null);
 
   async function refresh() {
     const jobs = await getMyJobs('active');
@@ -54,13 +57,18 @@ export default function RouteScreen() {
     [job?.route_stops_eta]
   );
 
-  async function transition(action: 'accept' | 'arrive' | 'pickup' | 'complete') {
-    if (!job) return;
-    if (action === 'accept') await acceptJob(job.id);
-    if (action === 'arrive') await arriveJob(job.id);
-    if (action === 'pickup') await pickupJob(job.id);
-    if (action === 'complete') await completeJob(job.id);
-    await refresh();
+  async function transition(action: RouteTransitionAction) {
+    if (!job || pendingAction) return;
+    setPendingAction(action);
+    try {
+      if (action === 'accept') await acceptJob(job.id);
+      if (action === 'arrive') await arriveJob(job.id);
+      if (action === 'pickup') await pickupJob(job.id);
+      if (action === 'complete') await completeJob(job.id);
+      await refresh();
+    } finally {
+      setPendingAction(null);
+    }
   }
 
   if (loading) return <ActivityIndicator style={{ marginTop: 40 }} />;
@@ -122,7 +130,7 @@ export default function RouteScreen() {
               etaMinutes={stop.eta_minutes}
             />
           ))}
-          <RouteActionPanel status={job.lifecycle_status} onTransition={transition} />
+          <RouteActionPanel status={job.lifecycle_status} onTransition={transition} pendingAction={pendingAction} />
         </ScrollView>
       )}
     </SafeAreaView>
