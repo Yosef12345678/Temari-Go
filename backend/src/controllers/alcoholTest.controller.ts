@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { AlcoholTestService, AlcoholTestInput } from '../services/alcoholTest.service';
+import { AlcoholCheckService } from '../services/alcoholCheck.service';
 
 /**
  * Submit alcohol test from microcontroller
@@ -104,6 +105,38 @@ export const submitAlcoholTest = async (req: Request, res: Response) => {
 			success: false,
 			code: 'INTERNAL_ERROR',
 			message: 'An error occurred while submitting the alcohol test.',
+		});
+	}
+};
+
+export const getDeviceAlcoholCheck = async (req: Request, res: Response) => {
+	try {
+		const deviceBusId = (req as any).device?.bus_id ?? null;
+		if (deviceBusId === null || deviceBusId === undefined) {
+			return res.status(400).json({
+				success: false,
+				code: 'DEVICE_BUS_REQUIRED',
+				message: 'Device must be assigned to a bus to check alcohol test readiness.',
+			});
+		}
+
+		const data = await AlcoholCheckService.getActiveForDeviceBus(Number(deviceBusId));
+		return res.status(200).json({ success: true, data });
+	} catch (error: any) {
+		console.error('Device alcohol check lookup error:', error);
+
+		if (error.status && error.code) {
+			return res.status(error.status).json({
+				success: false,
+				code: error.code,
+				message: error.message,
+			});
+		}
+
+		return res.status(500).json({
+			success: false,
+			code: 'INTERNAL_ERROR',
+			message: 'An error occurred while checking alcohol test readiness.',
 		});
 	}
 };

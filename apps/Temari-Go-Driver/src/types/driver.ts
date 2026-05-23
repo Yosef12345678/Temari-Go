@@ -6,6 +6,27 @@ export type DriverJobStatus =
   | 'completed'
   | 'cancelled';
 
+export type AlcoholCheckStatus = 'pending' | 'passed' | 'failed' | 'expired';
+
+export type AlcoholCheckSession = {
+  id: number;
+  route_run_id: number;
+  driver_id: number;
+  bus_id: number;
+  status: AlcoholCheckStatus;
+  expires_at: string;
+  alcohol_test_id?: number | null;
+  window_seconds: number;
+  schedule_active: boolean;
+  schedule_label: string;
+};
+
+export type AlcoholCheckView = {
+  session: AlcoholCheckSession | null;
+  schedule_active: boolean;
+  schedule_label: string;
+};
+
 export type DriverJobStudent = {
   id: number;
   full_name?: string;

@@ -2,6 +2,8 @@ import { unwrapData, type ApiEnvelope } from '@/api/envelope';
 import { request } from '@/api/http';
 import type {
   DriverJob,
+  AlcoholCheckSession,
+  AlcoholCheckView,
   DriverJobStatus,
 } from '@/types/driver';
 import type { UserMe } from '@/types/user';
@@ -23,6 +25,24 @@ export async function getJob(jobId: number): Promise<DriverJob> {
   const res = await request<ApiEnvelope<DriverJob>>('GET', `/driver/jobs/${encodeURIComponent(String(jobId))}`, {
     auth: true,
   });
+  return unwrapData(res);
+}
+
+export async function startAlcoholCheck(jobId: number): Promise<AlcoholCheckSession> {
+  const res = await request<ApiEnvelope<AlcoholCheckSession>>(
+    'POST',
+    `/driver/jobs/${encodeURIComponent(String(jobId))}/alcohol-check`,
+    { auth: true }
+  );
+  return unwrapData(res);
+}
+
+export async function getAlcoholCheck(jobId: number): Promise<AlcoholCheckView> {
+  const res = await request<ApiEnvelope<AlcoholCheckView>>(
+    'GET',
+    `/driver/jobs/${encodeURIComponent(String(jobId))}/alcohol-check`,
+    { auth: true }
+  );
   return unwrapData(res);
 }
 

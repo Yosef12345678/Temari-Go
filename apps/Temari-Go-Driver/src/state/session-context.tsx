@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { login as loginApi, logout as logoutApi } from '@/api/auth';
+import { setSessionExpiredHandler } from '@/api/sessionExpired';
 import { unwrapData } from '@/api/envelope';
 import type { LoginRequest } from '@/types/auth';
 import { bootstrapSession, clearSession, setSession, type SessionState } from '@/storage/session';
@@ -21,6 +22,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     bootstrapSession()
       .then((next) => setState(next))
       .finally(() => setBootstrapComplete(true));
+  }, []);
+
+  useEffect(() => {
+    setSessionExpiredHandler(async () => {
+      await clearSession();
+      setState({ status: 'unauthenticated', tokens: null });
+    });
+    return () => setSessionExpiredHandler(null);
   }, []);
 
   const signIn = useCallback(async (body: LoginRequest) => {

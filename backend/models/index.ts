@@ -10,6 +10,7 @@ import { Geofence } from './geofence.model';
 import { Attendance } from './attendance.model';
 import { Location } from './location.model';
 import { AlcoholTest } from './alcoholTest.model';
+import { AlcoholCheckSession } from './alcoholCheckSession.model';
 import { DriverFeedback } from './driverFeedback.model';
 import { DriverRating } from './driverRating.model';
 import { Payment } from './payment.model';
@@ -40,6 +41,7 @@ export const sequelize = new Sequelize(dbConfig.url, {
     Attendance,
     Location,
     AlcoholTest,
+    AlcoholCheckSession,
     DriverFeedback,
     DriverRating,
     Payment,
@@ -73,6 +75,7 @@ export const db = {
   Attendance,
   Location,
   AlcoholTest,
+  AlcoholCheckSession,
   DriverFeedback,
   DriverRating,
   Payment,

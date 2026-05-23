@@ -3,6 +3,7 @@ const { AlcoholTest, Bus, User, Role } = db;
 import { Op } from 'sequelize';
 import { NotificationService } from './notification.service';
 import { publishRealtimeEvent } from '../realtime/realtime.events';
+import { AlcoholCheckService } from './alcoholCheck.service';
 
 export interface AlcoholTestInput {
 	bus_id?: number;
@@ -136,6 +137,8 @@ export class AlcoholTestService {
 		if (!passed) {
 			await this.sendAdminAlert(bus, alcoholTest.id, input.alcohol_level, ALCOHOL_THRESHOLD);
 		}
+
+		await AlcoholCheckService.attachDeviceReading(bus.id, bus.driver_id, alcoholTest.id, passed);
 
 		// 8. Return result
 		const message = passed

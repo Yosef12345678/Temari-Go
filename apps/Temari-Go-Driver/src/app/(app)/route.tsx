@@ -1,9 +1,9 @@
 import MapView, { Marker, Polyline } from 'react-native-maps';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, UIManager, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { acceptJob, arriveJob, completeJob, getMyJobs, pickupJob } from '@/api/driver';
+import { acceptJob, arriveJob, completeJob, getAlcoholCheck, getMyJobs, pickupJob, startAlcoholCheck } from '@/api/driver';
 import { subscribeRealtime, type RealtimeSnapshot } from '@/api/realtime';
 import { AppBrand } from '@/components/app-brand';
 import {
@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useSession } from '@/state/session-context';
-import type { DriverJob } from '@/types/driver';
+import type { AlcoholCheckView, DriverJob } from '@/types/driver';
 
 const isNativeMapAvailable =
   Platform.OS !== 'web' &&
@@ -34,17 +34,48 @@ export default function RouteScreen() {
   const [job, setJob] = useState<DriverJob | null>(null);
   const [sync, setSync] = useState<RealtimeSnapshot | null>(null);
   const [pendingAction, setPendingAction] = useState<RouteTransitionAction | null>(null);
+  const [alcoholView, setAlcoholView] = useState<AlcoholCheckView | null>(null);
+  const [secondsRemaining, setSecondsRemaining] = useState(0);
+  const alcoholCheck = alcoholView?.session ?? null;
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     const jobs = await getMyJobs('active');
-    setJob(jobs[0] ?? null);
-  }
+    const nextJob = jobs[0] ?? null;
+    setJob(nextJob);
+    if (!nextJob || nextJob.lifecycle_status !== 'assigned') {
+      setAlcoholView(null);
+      return;
+    }
+    setAlcoholView(await getAlcoholCheck(nextJob.id));
+  }, []);
 
   useEffect(() => {
     refresh().finally(() => setLoading(false));
     const unsubscribe = subscribeRealtime(setSync);
     return unsubscribe;
-  }, []);
+  }, [refresh]);
+
+  useEffect(() => {
+    if (!job || job.lifecycle_status !== 'assigned' || alcoholCheck?.status !== 'pending') return;
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((new Date(alcoholCheck.expires_at).getTime() - Date.now()) / 1000));
+      setSecondsRemaining(remaining);
+      if (remaining === 0) {
+        void refresh();
+      }
+    };
+    tick();
+    const interval = setInterval(async () => {
+      tick();
+      const latest = await getAlcoholCheck(job.id);
+      setAlcoholView(latest);
+      if (latest.session?.status === 'passed') {
+        await acceptJob(job.id);
+        await refresh();
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [job, alcoholCheck?.id, alcoholCheck?.status, alcoholCheck?.expires_at, refresh]);
 
   const coordinates = useMemo(
     () =>
@@ -61,6 +92,15 @@ export default function RouteScreen() {
     if (!job || pendingAction) return;
     setPendingAction(action);
     try {
+      if (action === 'accept' && alcoholCheck?.status !== 'passed') {
+        const session = await startAlcoholCheck(job.id);
+        setAlcoholView({
+          session,
+          schedule_active: session.schedule_active,
+          schedule_label: session.schedule_label,
+        });
+        return;
+      }
       if (action === 'accept') await acceptJob(job.id);
       if (action === 'arrive') await arriveJob(job.id);
       if (action === 'pickup') await pickupJob(job.id);
@@ -130,7 +170,15 @@ export default function RouteScreen() {
               etaMinutes={stop.eta_minutes}
             />
           ))}
-          <RouteActionPanel status={job.lifecycle_status} onTransition={transition} pendingAction={pendingAction} />
+          <RouteActionPanel
+            status={job.lifecycle_status}
+            onTransition={transition}
+            alcoholCheck={alcoholCheck}
+            scheduleActive={alcoholView?.schedule_active ?? false}
+            scheduleLabel={alcoholView?.schedule_label}
+            secondsRemaining={secondsRemaining}
+            pendingAction={pendingAction}
+          />
         </ScrollView>
       )}
     </SafeAreaView>

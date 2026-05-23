@@ -46,6 +46,50 @@ export const getDriverJobById = async (req: Request, res: Response) => {
   }
 };
 
+export const startDriverJobAlcoholCheck = async (req: Request, res: Response) => {
+  try {
+    const data = await DriverService.startAlcoholCheck(
+      req.user?.id,
+      req.user?.role,
+      req.params.jobId,
+      req.body?.driver_id
+    );
+    return res.status(200).json({ success: true, data, message: 'Alcohol test capture window started.' });
+  } catch (error: any) {
+    console.error('Start driver job alcohol check error:', error);
+    if (error.status && error.code) {
+      return res.status(error.status).json({ success: false, code: error.code, message: error.message });
+    }
+    return res.status(500).json({
+      success: false,
+      code: 'INTERNAL_ERROR',
+      message: 'An error occurred while starting the alcohol check.',
+    });
+  }
+};
+
+export const getDriverJobAlcoholCheck = async (req: Request, res: Response) => {
+  try {
+    const data = await DriverService.getAlcoholCheck(
+      req.user?.id,
+      req.user?.role,
+      req.params.jobId,
+      req.query.driver_id
+    );
+    return res.status(200).json({ success: true, data });
+  } catch (error: any) {
+    console.error('Get driver job alcohol check error:', error);
+    if (error.status && error.code) {
+      return res.status(error.status).json({ success: false, code: error.code, message: error.message });
+    }
+    return res.status(500).json({
+      success: false,
+      code: 'INTERNAL_ERROR',
+      message: 'An error occurred while fetching the alcohol check.',
+    });
+  }
+};
+
 export const updateDriverJobStatus = async (
   req: Request,
   res: Response,

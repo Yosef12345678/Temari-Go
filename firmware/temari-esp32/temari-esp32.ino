@@ -1,5 +1,6 @@
 #include <WiFi.h>
 #include <esp_system.h>
+#include <time.h>
 
 #include "DeviceConfig.h"
 #include "DeviceSecrets.h"
@@ -39,8 +40,82 @@ static constexpr uint32_t LCD_REFRESH_MS = 500;
 static constexpr uint32_t ATTENDANCE_SYNC_MS = 20000;
 static constexpr uint32_t MQ3_CALIBRATE_AFTER_BOOT_MS = 30000; // MQ sensors need warm-up
 static constexpr size_t ATTENDANCE_SYNC_BATCH_MAX = 20;
-static constexpr uint32_t ALCOHOL_POST_MS = 60000;
 static constexpr float MQ3_TO_MG_L_SCALE = 0.10f; // normalized 0..1 => 0..0.10 mg/L
+static constexpr float BREATH_NORMALIZED_THRESHOLD = 0.12f;
+static constexpr uint32_t BREATH_COOLDOWN_MS = 8000;
+
+// East Africa Time (UTC+3): 06:00–07:00 and 15:00–16:00
+static bool isAlcoholCheckWindowActive() {
+  if (!timeSync.isSane()) return false;
+
+  time_t now = time(nullptr);
+  const time_t eatSec = now + (3 * 3600);
+  struct tm eat {};
+  gmtime_r(&eatSec, &eat);
+
+  const int minutes = eat.tm_hour * 60 + eat.tm_min;
+  const bool morning = minutes >= (6 * 60) && minutes < (7 * 60);
+  const bool afternoon = minutes >= (15 * 60) && minutes < (16 * 60);
+  return morning || afternoon;
+}
+
+static bool breathSampleDetected(const Mq3Sensor& sensor) {
+  if (sensor.digitalTriggered()) return true;
+  const Mq3Reading& r = sensor.reading();
+  return r.has_baseline && r.normalized >= BREATH_NORMALIZED_THRESHOLD;
+}
+
+static bool submitAlcoholReadingIfPending(int* submittedCheckId) {
+  AlcoholCheckStatus check{};
+  String checkResp;
+  const bool checkOk = backend.getAlcoholCheckDevice(&check, &checkResp);
+  if (!checkOk) {
+    Serial.print("Alcohol check lookup failed status=");
+    Serial.print(backend.lastHttpStatus());
+    Serial.print(" err=");
+    Serial.println(backend.lastError());
+    return false;
+  }
+  if (!check.active || check.status != "pending") {
+    if (submittedCheckId) *submittedCheckId = 0;
+    return false;
+  }
+  if (submittedCheckId && check.id == *submittedCheckId) {
+    return false;
+  }
+
+  const Mq3Reading& r = mq3.reading();
+  if (!r.has_baseline) {
+    Serial.println("Breath detected but MQ3 baseline is not ready.");
+    return false;
+  }
+
+  const GpsFix& fix = gps.lastFix();
+  AlcoholTestPayload p{};
+  p.alcohol_level = static_cast<double>(r.normalized * MQ3_TO_MG_L_SCALE);
+  p.has_bus_id = true;
+  p.bus_id = config.busId;
+  p.has_vehicle_id = false;
+  p.has_latitude = fix.valid;
+  p.latitude = fix.lat;
+  p.has_longitude = fix.valid;
+  p.longitude = fix.lon;
+  p.has_timestamp = fix.has_timestamp;
+  p.timestamp_iso8601 = fix.timestamp_iso8601;
+
+  String resp;
+  const bool ok = backend.postAlcoholTestDevice(p, &resp);
+  Serial.println(resp);
+  if (ok && submittedCheckId) {
+    *submittedCheckId = check.id;
+  } else if (!ok) {
+    Serial.print("Alcohol post failed status=");
+    Serial.print(backend.lastHttpStatus());
+    Serial.print(" err=");
+    Serial.println(backend.lastError());
+  }
+  return ok;
+}
 
 static void applySecretsToConfig(DeviceConfig* cfg) {
   if (!cfg) return;
@@ -51,9 +126,9 @@ static void applySecretsToConfig(DeviceConfig* cfg) {
   cfg->busId = kBusId;
 }
 
-static void connectWifi(const DeviceConfig& cfg) {
+static void connectWifi() {
   WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  WiFi.begin(config.wifiSsid.c_str(), config.wifiPassword.c_str());
 
   const uint32_t start = millis();
   while (WiFi.status() != WL_CONNECTED) {
@@ -105,7 +180,9 @@ void loop() {
   static uint32_t lastLocationPostMs = 0;
   static uint32_t lastLcdRefreshMs = 0;
   static uint32_t lastAttendanceSyncMs = 0;
-  static uint32_t lastAlcoholPostMs = 0;
+  static int lastSubmittedAlcoholCheckId = 0;
+  static uint32_t lastBreathAttemptMs = 0;
+  static bool breathArmed = true;
   static bool mq3Calibrated = false;
 
   const uint32_t now = millis();
@@ -162,7 +239,7 @@ void loop() {
       scan.latitude = fix.lat;
       scan.longitude = fix.lon;
       scan.has_bus_id = true;
-      scan.bus_id = BUS_ID;
+      scan.bus_id = config.busId;
       scan.has_vehicle_id = false;
       scan.has_timestamp = fix.has_timestamp;
       scan.timestamp_iso8601 = fix.timestamp_iso8601;
@@ -184,7 +261,7 @@ void loop() {
         rec.latitude = fix.lat;
         rec.longitude = fix.lon;
         rec.has_bus_id = true;
-        rec.bus_id = BUS_ID;
+        rec.bus_id = config.busId;
         rec.has_vehicle_id = false;
         rec.has_timestamp = fix.has_timestamp;
         rec.timestamp_iso8601 = fix.timestamp_iso8601;
@@ -201,7 +278,7 @@ void loop() {
       rec.latitude = fix.valid ? fix.lat : 0.0;
       rec.longitude = fix.valid ? fix.lon : 0.0;
       rec.has_bus_id = true;
-      rec.bus_id = BUS_ID;
+      rec.bus_id = config.busId;
       rec.has_vehicle_id = false;
       rec.has_timestamp = fix.has_timestamp;
       rec.timestamp_iso8601 = fix.timestamp_iso8601;
@@ -217,7 +294,7 @@ void loop() {
     const GpsFix& fix = gps.lastFix();
     if (fix.valid) {
       LocationPayload loc{};
-      loc.bus_id = BUS_ID;
+      loc.bus_id = config.busId;
       loc.latitude = fix.lat;
       loc.longitude = fix.lon;
       loc.has_speed = fix.has_speed;
@@ -237,34 +314,14 @@ void loop() {
     }
   }
 
-  // Periodic alcohol telemetry (device-auth endpoint)
-  if (WiFi.status() == WL_CONNECTED && (now - lastAlcoholPostMs) >= ALCOHOL_POST_MS) {
-    lastAlcoholPostMs = now;
-    const Mq3Reading& r = mq3.reading();
-    if (r.has_baseline) {
-      const GpsFix& fix = gps.lastFix();
-
-      AlcoholTestPayload p{};
-      p.alcohol_level = static_cast<double>(r.normalized * MQ3_TO_MG_L_SCALE);
-      p.has_bus_id = true;
-      p.bus_id = BUS_ID;
-      p.has_vehicle_id = false;
-      p.has_latitude = fix.valid;
-      p.latitude = fix.lat;
-      p.has_longitude = fix.valid;
-      p.longitude = fix.lon;
-      p.has_timestamp = fix.has_timestamp;
-      p.timestamp_iso8601 = fix.timestamp_iso8601;
-
-      String resp;
-      const bool ok = backend.postAlcoholTestDevice(p, &resp);
-      Serial.println(resp);
-      if (!ok) {
-        Serial.print("Alcohol post failed status=");
-        Serial.print(backend.lastHttpStatus());
-        Serial.print(" err=");
-        Serial.println(backend.lastError());
-      }
+  // Driver-initiated breath test: HTTP only after a blow, and only in EAT schedule windows.
+  if (WiFi.status() == WL_CONNECTED && mq3Calibrated && isAlcoholCheckWindowActive()) {
+    if (breathSampleDetected(mq3) && breathArmed && (now - lastBreathAttemptMs) >= BREATH_COOLDOWN_MS) {
+      breathArmed = false;
+      lastBreathAttemptMs = now;
+      lcd.showMsg("Breath", "Sending...");
+      submitAlcoholReadingIfPending(&lastSubmittedAlcoholCheckId);
+      breathArmed = true;
     }
   }
 

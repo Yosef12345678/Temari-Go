@@ -145,6 +145,38 @@ bool BackendClient::postAlcoholTestDevice(const AlcoholTestPayload& payload, Str
   return postJson("/api/alcohol-tests/device", body, responseOut);
 }
 
+bool BackendClient::getAlcoholCheckDevice(AlcoholCheckStatus* statusOut, String* responseOut) {
+  clearLastError();
+
+  if (statusOut) *statusOut = {};
+
+  String resp;
+  const bool ok = getJson("/api/alcohol-tests/device/check", &resp);
+  if (responseOut) *responseOut = resp;
+  if (!ok) return false;
+
+  StaticJsonDocument<512> doc;
+  DeserializationError err = deserializeJson(doc, resp);
+  if (err) {
+    _lastError = "failed to parse alcohol check response";
+    return false;
+  }
+
+  JsonVariant data = doc["data"];
+  if (data.isNull()) return true;
+
+  if (statusOut) {
+    statusOut->active = true;
+    statusOut->id = data["id"] | 0;
+    statusOut->route_run_id = data["route_run_id"] | 0;
+    statusOut->bus_id = data["bus_id"] | 0;
+    statusOut->status = data["status"] | "";
+    statusOut->expires_at = data["expires_at"] | "";
+  }
+
+  return true;
+}
+
 bool BackendClient::postJson(const String& path, const String& jsonBody, String* responseOut) {
   if (_baseUrl.length() == 0) {
     _lastError = "baseUrl not configured";
@@ -218,6 +250,69 @@ bool BackendClient::postJson(const String& path, const String& jsonBody, String*
   http.end();
 
   // Backend uses 200/201 for success. Treat any 2xx as success.
+  return status >= 200 && status < 300;
+}
+
+bool BackendClient::getJson(const String& path, String* responseOut) {
+  if (_baseUrl.length() == 0) {
+    _lastError = "baseUrl not configured";
+    return false;
+  }
+  if (_deviceKey.length() == 0) {
+    _lastError = "deviceKey not configured";
+    return false;
+  }
+
+  ParsedBaseUrl u;
+  if (!parseBaseUrl(_baseUrl, &u)) {
+    _lastError = "invalid baseUrl (expected http(s)://host[:port])";
+    return false;
+  }
+
+  WiFiClientSecure client;
+  client.setHandshakeTimeout(45000);
+  client.setInsecure();
+
+  HTTPClient http;
+  const String fullPath = (u.basePath.length() > 0 ? (u.basePath + path) : path);
+
+  IPAddress ip;
+  const bool dnsOk = WiFi.hostByName(u.host.c_str(), ip);
+  if (!dnsOk) {
+    _lastError = "dns lookup failed (WiFi.hostByName)";
+    return false;
+  }
+
+  http.setReuse(false);
+  if (!http.begin(client, u.host, u.port, fullPath, u.https)) {
+    _lastError = "http begin failed (host/port/path)";
+    return false;
+  }
+
+  http.setReuse(false);
+  http.setConnectTimeout(20000);
+  http.setTimeout(45000);
+  http.setUserAgent("TemariESP32/1.0");
+  http.addHeader("x-device-key", _deviceKey);
+  http.addHeader("ngrok-skip-browser-warning", "true");
+
+  const int status = http.GET();
+  _lastHttpStatus = status;
+
+  if (status <= 0) {
+    char sslDetail[144];
+    const int mbedCode = client.lastError(sslDetail, sizeof(sslDetail));
+    _lastError = http.errorToString(status);
+    if (mbedCode != 0) {
+      _lastError += String(" mbedTLS ") + String(mbedCode) + String(": ") + String(sslDetail);
+    }
+    http.end();
+    return false;
+  }
+
+  if (responseOut) *responseOut = http.getString();
+  http.end();
+
   return status >= 200 && status < 300;
 }
 

@@ -2,6 +2,7 @@ import { Op } from 'sequelize';
 
 import { db } from '../../models';
 import { publishRealtimeEvent } from '../realtime/realtime.events';
+import { AlcoholCheckService } from './alcoholCheck.service';
 import { RouteRunService, type RouteRunStatus } from './routeRun.service';
 
 const { Bus, RouteRun } = db;
@@ -104,6 +105,17 @@ export class DriverService {
       throw { status: 404, code: 'JOB_NOT_FOUND', message: 'Job not found for this driver.' };
     }
 
+    if (targetStatus === 'accepted') {
+      const passed = await AlcoholCheckService.hasPassedRouteCheck(jobId, driverId);
+      if (!passed) {
+        throw {
+          status: 409,
+          code: 'ALCOHOL_TEST_REQUIRED',
+          message: 'Complete a passing pre-route alcohol test before accepting this route.',
+        };
+      }
+    }
+
     const reason = typeof cancelReason === 'string' ? cancelReason : undefined;
     let output: Awaited<ReturnType<typeof RouteRunService.transitionStatus>>;
     try {
@@ -127,5 +139,40 @@ export class DriverService {
     });
 
     return output;
+  }
+
+  static async startAlcoholCheck(
+    requesterIdRaw: unknown,
+    requesterRole: string | undefined,
+    jobIdRaw: unknown,
+    targetDriverIdRaw?: unknown
+  ) {
+    const driverId = await this.resolveDriverScope(requesterIdRaw, requesterRole, targetDriverIdRaw);
+    const jobId = parseNumericId(jobIdRaw, 'INVALID_JOB_ID');
+    const busIds = await getDriverBusIds(driverId);
+    if (busIds.length === 0) {
+      throw { status: 404, code: 'JOB_NOT_FOUND', message: 'Job not found for this driver.' };
+    }
+
+    const scoped = await RouteRun.findOne({
+      where: { id: jobId, bus_id: { [Op.in]: busIds } },
+      attributes: ['id'],
+    });
+    if (!scoped) {
+      throw { status: 404, code: 'JOB_NOT_FOUND', message: 'Job not found for this driver.' };
+    }
+
+    return AlcoholCheckService.startForRouteRun(jobId, driverId);
+  }
+
+  static async getAlcoholCheck(
+    requesterIdRaw: unknown,
+    requesterRole: string | undefined,
+    jobIdRaw: unknown,
+    targetDriverIdRaw?: unknown
+  ) {
+    const driverId = await this.resolveDriverScope(requesterIdRaw, requesterRole, targetDriverIdRaw);
+    const jobId = parseNumericId(jobIdRaw, 'INVALID_JOB_ID');
+    return AlcoholCheckService.getForRouteRun(jobId, driverId);
   }
 }

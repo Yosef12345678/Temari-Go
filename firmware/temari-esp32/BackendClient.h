@@ -54,6 +54,15 @@ struct AlcoholTestPayload {
   bool has_timestamp;
 };
 
+struct AlcoholCheckStatus {
+  bool active = false;
+  int id = 0;
+  int route_run_id = 0;
+  int bus_id = 0;
+  String status;
+  String expires_at;
+};
+
 class BackendClient {
  public:
   BackendClient();
@@ -65,6 +74,7 @@ class BackendClient {
   bool postAttendanceScan(const AttendanceScanPayload& payload, String* responseOut);
   bool postAttendanceSync(const AttendanceSyncRecord* records, size_t recordCount, String* responseOut);
   bool postAlcoholTestDevice(const AlcoholTestPayload& payload, String* responseOut);
+  bool getAlcoholCheckDevice(AlcoholCheckStatus* statusOut, String* responseOut);
 
   int lastHttpStatus() const { return _lastHttpStatus; }
   const String& lastError() const { return _lastError; }
@@ -77,6 +87,7 @@ class BackendClient {
   String _lastError;
 
   bool postJson(const String& path, const String& jsonBody, String* responseOut);
+  bool getJson(const String& path, String* responseOut);
   void clearLastError();
 };
 

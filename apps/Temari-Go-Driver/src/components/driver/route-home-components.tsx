@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import type { DriverJob, DriverJobStatus } from '@/types/driver';
+import type { AlcoholCheckSession, DriverJob, DriverJobStatus } from '@/types/driver';
 
 type IconComponent = React.ComponentType<{ color?: string; size?: number }>;
 
@@ -104,13 +104,47 @@ const NEXT_ACTION: Partial<Record<DriverJobStatus, { action: RouteTransitionActi
 export function RouteActionPanel({
   status,
   onTransition,
+  alcoholCheck,
+  scheduleActive = false,
+  scheduleLabel,
+  secondsRemaining,
   pendingAction,
 }: {
   status: DriverJobStatus;
   onTransition: (action: RouteTransitionAction) => void;
+  alcoholCheck?: AlcoholCheckSession | null;
+  scheduleActive?: boolean;
+  scheduleLabel?: string;
+  secondsRemaining?: number;
   pendingAction?: RouteTransitionAction | null;
 }) {
   const next = NEXT_ACTION[status];
+  const outsideSchedule = status === 'assigned' && !scheduleActive;
+  const acceptBlocked =
+    status === 'assigned' &&
+    (outsideSchedule || alcoholCheck?.status === 'pending' || alcoholCheck?.status === 'failed');
+  const acceptLabel = status === 'assigned'
+    ? outsideSchedule
+      ? 'Outside test hours'
+      : alcoholCheck?.status === 'passed'
+        ? 'Accept route'
+        : alcoholCheck?.status === 'pending'
+          ? 'Blow into bus device'
+          : 'Ready — start breath check'
+    : next?.label;
+  const helper = status === 'assigned'
+    ? outsideSchedule
+      ? scheduleLabel ?? 'Breath tests are only available during scheduled morning and afternoon windows.'
+      : alcoholCheck?.status === 'passed'
+        ? 'Breath test passed. You can now accept this route.'
+        : alcoholCheck?.status === 'pending'
+          ? `Tap started. Blow into the bus breathalyzer now. Window closes in ${secondsRemaining ?? 0}s.`
+          : alcoholCheck?.status === 'failed'
+            ? 'Alcohol test failed. Do not operate the vehicle.'
+            : alcoholCheck?.status === 'expired'
+              ? 'Breath test window expired. Tap below to start a new check.'
+              : 'Tap when ready, then blow into the bus device before accepting this route.'
+    : next?.helper;
 
   return (
     <Card style={styles.actionCard}>
@@ -120,8 +154,13 @@ export function RouteActionPanel({
       </View>
       {next ? (
         <>
-          <ThemedText themeColor="textSecondary">{next.helper}</ThemedText>
-          <Button onPress={() => onTransition(next.action)} label={next.label} loading={pendingAction === next.action} />
+          <ThemedText themeColor="textSecondary">{helper}</ThemedText>
+          <Button
+            disabled={acceptBlocked || alcoholCheck?.status === 'failed'}
+            onPress={() => onTransition(next.action)}
+            label={acceptLabel ?? next.label}
+            loading={pendingAction === next.action}
+          />
         </>
       ) : (
         <ThemedText themeColor="textSecondary">No route action is currently available.</ThemedText>

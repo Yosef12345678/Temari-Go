@@ -8,6 +8,8 @@ export type RealtimeEvent =
   | 'location.updated'
   | 'location.speed_violation'
   | 'safety.alcohol_test'
+  | 'safety.alcohol_check.started'
+  | 'safety.alcohol_check.completed'
   | 'safety.motion_alert'
   | 'safety.sos'
   | 'notification.created';

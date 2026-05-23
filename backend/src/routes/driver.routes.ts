@@ -3,6 +3,8 @@ import { Router } from 'express';
 import {
   getDriverJobById,
   getDriverJobs,
+  getDriverJobAlcoholCheck,
+  startDriverJobAlcoholCheck,
   updateDriverJobStatus,
 } from '../controllers/driver.controller';
 import authMiddleware from '../middlewares/auth.middleware';
@@ -15,6 +17,8 @@ router.use(authorize('driver', 'admin'));
 
 router.get('/me/jobs', getDriverJobs);
 router.get('/jobs/:jobId', getDriverJobById);
+router.post('/jobs/:jobId/alcohol-check', startDriverJobAlcoholCheck);
+router.get('/jobs/:jobId/alcohol-check', getDriverJobAlcoholCheck);
 router.post('/jobs/:jobId/accept', (req, res) => updateDriverJobStatus(req, res, 'accepted'));
 router.post('/jobs/:jobId/arrive', (req, res) => updateDriverJobStatus(req, res, 'arrived'));
 router.post('/jobs/:jobId/pickup', (req, res) => updateDriverJobStatus(req, res, 'picked_up'));

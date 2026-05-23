@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
 	submitAlcoholTest,
+	getDeviceAlcoholCheck,
 	getDriverAlcoholTests,
 	getBusAlcoholTests,
 } from '../controllers/alcoholTest.controller';
@@ -12,6 +13,7 @@ const router = Router();
 
 // POST /api/alcohol-tests/device - Submit alcohol test from device (x-device-key)
 router.post('/device', deviceAuthMiddleware, submitAlcoholTest);
+router.get('/device/check', deviceAuthMiddleware, getDeviceAlcoholCheck);
 
 // All other routes require user authentication
 router.use(authMiddleware);

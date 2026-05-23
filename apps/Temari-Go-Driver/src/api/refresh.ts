@@ -1,4 +1,4 @@
-import { writeTokens } from '@/storage/secureTokens';
+import { clearTokens, writeTokens } from '@/storage/secureTokens';
 
 import type { ApiEnvelope } from './envelope';
 import type { ApiError } from './http';
@@ -38,6 +38,7 @@ export async function refreshAndUpdateSession(): Promise<boolean> {
       const status = typeof err.status === 'number' ? err.status : undefined;
       if (status === 401 && (code === 'INVALID_TOKEN' || code === 'TOKEN_EXPIRED' || code === 'UNAUTHORIZED' || !code)) {
         setTokens(null);
+        await clearTokens();
       }
       return false;
     } finally {

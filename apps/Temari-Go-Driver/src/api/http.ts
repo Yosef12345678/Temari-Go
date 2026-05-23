@@ -102,10 +102,14 @@ export async function request<T>(
 
     if (res.ok) return data as T;
 
-    if (res.status === 401 && options.auth && allowRefresh) {
-      const { refreshAndUpdateSession } = await import('./refresh');
-      const refreshed = await refreshAndUpdateSession();
-      if (refreshed) return await request<T>(method, path, { ...options, allowRefresh: false });
+    if (res.status === 401 && options.auth) {
+      if (allowRefresh) {
+        const { refreshAndUpdateSession } = await import('./refresh');
+        const refreshed = await refreshAndUpdateSession();
+        if (refreshed) return await request<T>(method, path, { ...options, allowRefresh: false });
+      }
+      const { notifySessionExpired } = await import('./sessionExpired');
+      notifySessionExpired();
     }
 
     throw normalizeError(res.status, data);
