@@ -52,7 +52,10 @@ function isExpoDevOrigin(origin: string): boolean {
 
 app.use(
 	cors({
-		origin: (origin, cb) => {
+		origin: (
+			origin: string | undefined,
+			cb: (err: Error | null, allow?: boolean) => void
+		) => {
 			// Native apps often don't send an Origin header.
 			if (!origin) return cb(null, true);
 
