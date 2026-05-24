@@ -80,6 +80,12 @@ type SchoolWithLocation = School & {
   longitude?: number | null;
 };
 
+/** API may return `lat`/`lng` instead of `latitude`/`longitude`. */
+type SchoolApiRow = School & {
+  lat?: number | string | null;
+  lng?: number | string | null;
+};
+
 const emptyForm: CreateSchoolInput = {
   name: "",
   address: "",
@@ -119,7 +125,7 @@ export function SchoolView() {
     try {
       const list = await schoolAPI.getAll(getToken());
       // Backend may or may not send coordinates; normalise.
-      const withLocation: SchoolWithLocation[] = list.map((s: any) => ({
+      const withLocation: SchoolWithLocation[] = list.map((s: SchoolApiRow) => ({
         ...s,
         latitude:
           s.latitude != null

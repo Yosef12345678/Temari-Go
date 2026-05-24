@@ -393,16 +393,15 @@ export function MapView() {
     // Derive from school coordinates when type is school
     if (form.type === "school" && form.school_id) {
       const school = schools.find((s) => s.id === form.school_id);
-      const anySchool = school as any;
       if (
-        anySchool &&
-        anySchool.latitude != null &&
-        anySchool.longitude != null
+        school &&
+        school.latitude != null &&
+        school.longitude != null
       ) {
         setForm((f) => ({
           ...f,
-          latitude: Number(anySchool.latitude),
-          longitude: Number(anySchool.longitude),
+          latitude: Number(school.latitude),
+          longitude: Number(school.longitude),
         }));
         return;
       }
