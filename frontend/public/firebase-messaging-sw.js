@@ -9,14 +9,15 @@ importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-comp
 // Initialize Firebase in the service worker
 // TODO: Replace these values with your Firebase project configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyDr1CU005XQd00TMWYC-TwFS7LFdhfxsMg",
-  authDomain: "temari-go.firebaseapp.com",
-  projectId: "temari-go",
-  storageBucket: "temari-go.firebasestorage.app",
-  messagingSenderId: "220653153267",
-  appId: "1:220653153267:web:e31499f275a4dc681cc086",
-  measurementId: "G-5V5BXG72P3"
+  apiKey: "AIzaSyAYg_88rb8uFkNpS6Md2xbVw6kD5Sf5-8o",
+  authDomain: "temari-go-3ba9a.firebaseapp.com",
+  projectId: "temari-go-3ba9a",
+  storageBucket: "temari-go-3ba9a.firebasestorage.app",
+  messagingSenderId: "188875673348",
+  appId: "1:188875673348:web:2a0964ded39daa53ca8a51",
+  measurementId: "G-Y6D65SXZ8L"
 };
+
 
 firebase.initializeApp(firebaseConfig);
 
