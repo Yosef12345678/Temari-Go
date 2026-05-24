@@ -1,5 +1,6 @@
 export const translations = {
   en: {
+    // Common / Profile (existing)
     profile: 'Profile',
     profileSubtitle: 'Driver account, preferences, and app settings',
     accountInfo: 'Account information',
@@ -16,6 +17,7 @@ export const translations = {
     username: 'Username',
     phone: 'Phone',
     role: 'Role',
+    driver: 'Driver',
     notProvided: 'Not provided',
     loadingProfile: 'Loading profile...',
     profileUnavailable: 'Profile unavailable',
@@ -29,8 +31,168 @@ export const translations = {
     attendance: 'Attendance',
     alerts: 'Alerts',
     safety: 'Safety',
+
+    // Auth shell
+    driverSecureAccess: 'Driver secure access',
+    driverConsoleDescription:
+      'Manage routes, attendance, safety checks, and alerts from one driver console.',
+
+    // Login
+    driverPortal: 'Driver Portal',
+    signIn: 'Sign In',
+    signInDescription: 'Use your assigned driver account credentials to continue.',
+    driverOnly: 'Driver only',
+    signInNotice: 'Sign in with the account verified by your Temari Go admin.',
+    emailOrUsername: 'Email or username',
+    password: 'Password',
+    hidePassword: 'Hide password',
+    showPassword: 'Show password',
+    signingIn: 'Signing in...',
+    newDriverApply: 'New driver? Apply to drive',
+    unableToSignIn: 'Unable to sign in',
+
+    // Register
+    driverApplication: 'Driver Application',
+    applyToDrive: 'Apply to drive',
+    registerDescription:
+      'Submit your details. An admin will verify your account and send you a setup link.',
+    adminVerificationRequired: 'Admin verification required',
+    applicationNotice: 'Your application creates a pending driver profile for review.',
+    fullName: 'Full name',
+    phoneNumber: 'Phone number',
+    optionalRecommended: 'Optional, but recommended.',
+    usernameOptional: 'Optional. Must be unique.',
+    submitApplication: 'Submit application',
+    submitting: 'Submitting...',
+    alreadyHaveAccount: 'Already have an account? Sign in',
+    emailIsRequired: 'Email is required.',
+    enterValidEmail: 'Enter a valid email address.',
+    nameIsRequired: 'Name is required.',
+    applicationSubmitted: 'Application submitted. Pending admin verification.',
+    unableToSubmit: 'Unable to submit application',
+
+    // Route
+    driverConsole: 'Driver console',
+    noActiveRoute: 'No active route assigned',
+    noActiveRouteDescription:
+      'You are all set. New route assignments, operational notices, and safety alerts will appear here as soon as dispatch sends them.',
+    liveRouteMap: 'Live route map',
+    mappedStops: '{{count}} mapped stops',
+    mapPreviewUnavailable: 'Map preview unavailable',
+    mapFallbackDescription:
+      'The current app build does not include the native maps module. Route stops are still listed below.',
+    stopEtas: 'Stop ETAs',
+    pickupOrder: 'Pickup order',
+    student: 'Student',
+    readyForNextRoute: 'Ready for your next route',
+    noActiveAssignment: 'No active assignment yet. Stay online for dispatch updates.',
+    busNumber: 'Bus {{number}}',
+    stops: 'Stops',
+    nextEta: 'Next ETA',
+    traffic: 'Traffic',
+    normal: 'Normal',
+    pickupStop: 'Pickup stop',
+    routeProgress: 'Route progress',
+
+    // Route actions
+    acceptRoute: 'Accept route',
+    confirmRouteAssignment: 'Confirm this route assignment before starting.',
+    markArrived: 'Mark arrived',
+    reachPickupArea: 'Use this when you reach the pickup area.',
+    startPickup: 'Start pickup',
+    confirmBoarding: 'Confirm students are boarding.',
+    completeRoute: 'Complete route',
+    finishAfterDropoff: 'Finish the route after drop-off is done.',
+    outsideTestHours: 'Outside test hours',
+    blowIntoBusDevice: 'Blow into bus device',
+    readyStartBreathCheck: 'Ready — start breath check',
+    breathTestWindowOnly:
+      'Breath tests are only available during scheduled morning and afternoon windows.',
+    breathTestPassed: 'Breath test passed. You can now accept this route.',
+    tapStartedBlowWindow:
+      'Tap started. Blow into the bus breathalyzer now. Window closes in {{seconds}}s.',
+    alcoholTestFailed: 'Alcohol test failed. Do not operate the vehicle.',
+    breathTestExpired: 'Breath test window expired. Tap below to start a new check.',
+    tapReadyBlow:
+      'Tap when ready, then blow into the bus device before accepting this route.',
+    noRouteAction: 'No route action is currently available.',
+
+    // Attendance
+    attendanceSubtitle: 'Track student boarding and exits',
+    loadingAttendance: 'Loading attendance...',
+    noActiveBusAssignment: 'No active bus assignment',
+    attendanceToolsDescription:
+      'Attendance tools will appear when dispatch assigns your active route.',
+    expected: 'Expected',
+    onboard: 'Onboard',
+    missed: 'Missed',
+    absences: 'Absences',
+    searchStudent: 'Search student by name or ID',
+    students: 'Students',
+    noStudentsFound: 'No students found',
+    tryDifferentSearch: 'Try a different name or student ID.',
+    absent: 'Absent',
+    boarded: 'Boarded',
+    selected: 'Selected',
+    select: 'Select',
+    manualAttendance: 'Manual attendance',
+    selectStudentForManual: 'Select a student above to record manual attendance.',
+    checkIn: 'Check-In',
+    checkOut: 'Check-Out',
+    syncQueue: 'Sync Queue',
+    parentAbsenceAlerts: 'Parent absence alerts',
+    noParentAbsences: 'No parent absence alerts',
+    reportedAbsencesAppearHere: 'Reported absences for this route will appear here.',
+    offline: 'Offline',
+    attendanceQueued: 'Attendance queued and will sync when online.',
+
+    // Alerts
+    communicationAlerts: 'Communication & Alerts',
+    unreadAlerts: '{{count}} unread alerts',
+    all: 'All',
+    operational: 'Operational',
+    safetyLabel: 'Safety',
+    loadingAlerts: 'Loading alerts...',
+    noAlertsFound: 'No alerts found',
+    alertsAppearHere:
+      'Dispatch messages, safety alerts, and attendance notices will appear here.',
+    markRead: 'Mark read',
+
+    // Safety
+    safetyEmergency: 'Safety & Emergency',
+    safetySubtitle: 'Complete safety checks and contact dispatch quickly.',
+    preRouteBreathCheckRequired: 'Pre-route breath check required',
+    tapReadyOnRoute: 'Tap Ready on your route to open the ESP capture window.',
+    espOnly: 'ESP only',
+    preShiftBreathTest: 'Pre-shift breath test',
+    manualBacDisabled:
+      'Manual BAC entry is disabled. The ESP device submits the reading during the one-minute route readiness window.',
+    emergency: 'Emergency',
+    useSosOnly:
+      'Use SOS only for urgent route, medical, or vehicle safety events.',
+    sendingSos: 'Sending SOS...',
+    sosPanicAlert: 'SOS / Panic Alert',
+    speedAlertsRealtime:
+      'Speed and unsafe-motion alerts are delivered in realtime via notifications.',
+    sendSosTitle: 'Send SOS?',
+    sendSosMessage: 'This will notify dispatch and administrators immediately.',
+    cancel: 'Cancel',
+    sendSos: 'Send SOS',
+    sosSent: 'SOS sent',
+    sosDispatched: 'Emergency alert was dispatched to admin.',
+    unableToSendSos: 'Unable to send SOS',
+    pleaseTryAgain: 'Please try again.',
+
+    // Feedback states
+    loadingDefault: 'Loading...',
+    somethingWentWrong: 'Something went wrong',
+    tryAgain: 'Try again',
+
+    // Misc
+    grade: 'Grade {{grade}}',
   },
   am: {
+    // Common / Profile (existing)
     profile: 'መገለጫ',
     profileSubtitle: 'የአሽከርካሪ መለያ፣ ምርጫዎች እና የመተግበሪያ ቅንብሮች',
     accountInfo: 'የመለያ መረጃ',
@@ -47,6 +209,7 @@ export const translations = {
     username: 'የተጠቃሚ ስም',
     phone: 'ስልክ',
     role: 'ሚና',
+    driver: 'አሽከርካሪ',
     notProvided: 'አልተሰጠም',
     loadingProfile: 'መገለጫ በመጫን ላይ...',
     profileUnavailable: 'መገለጫ አልተገኘም',
@@ -60,7 +223,167 @@ export const translations = {
     attendance: 'መገኘት',
     alerts: 'ማሳወቂያዎች',
     safety: 'ደህንነት',
+
+    // Auth shell
+    driverSecureAccess: 'የአሽከርካሪ ደህንነቱ የተጠበቀ ገቢ',
+    driverConsoleDescription:
+      'ከአንድ የአሽከርካሪ ገበታ መንገዶችን፣ መገኘትን፣ የደህንነት ምርመራዎችን እና ማሳወቂያዎችን ያስተዳድሩ።',
+
+    // Login
+    driverPortal: 'የአሽከርካሪ መግቢያ',
+    signIn: 'ይግቡ',
+    signInDescription: 'የተመደበላችሁን የአሽከርካሪ መለያ ለመጠቀም ይህን ይጠቀሙ።',
+    driverOnly: 'ለአሽከርካሪ ብቻ',
+    signInNotice: 'በTemari Go አስተዳዳሪ የተረጋገጠውን መለያ ይጠቀሙ።',
+    emailOrUsername: 'ኢሜይል ወይም የተጠቃሚ ስም',
+    password: 'የይለፍ ቃል',
+    hidePassword: 'የይለፍ ቃል ደብቅ',
+    showPassword: 'የይለፍ ቃል አሳይ',
+    signingIn: 'በመግባት ላይ...',
+    newDriverApply: 'አዲስ አሽከርካሪ? ለመኪና ለማሽከርከር ያመልክቱ',
+    unableToSignIn: 'መግባት አልተቻለም',
+
+    // Register
+    driverApplication: 'የአሽከርካሪ ማመልከቻ',
+    applyToDrive: 'ለመኪና ለማሽከርከር ያመልክቱ',
+    registerDescription:
+      'ዝርዝሮን ያስገቡ። አስተዳዳሪ መለያውን ያረጋግጣል እና የማዋቀሪያ ማስኳን ይላክልዎታል።',
+    adminVerificationRequired: 'የአስተዳዳሪ ማረጋገጫ ያስፈልጋል',
+    applicationNotice: 'ማመልከቻዎ ለጥናት የሚቀርብ የአሽከርካሪ መገለጫ ይፈጥራል።',
+    fullName: 'ሙሉ ስም',
+    phoneNumber: 'የስልክ ቁጥር',
+    optionalRecommended: 'አማራጭ፣ ግን የሚመከር።',
+    usernameOptional: 'አማራጭ። ልዩ መሆን አለበት።',
+    submitApplication: 'ማመልከቻ ያስገቡ',
+    submitting: 'በማስገባት ላይ...',
+    alreadyHaveAccount: 'ቀድሞ መለያ አለዎት? ይግቡ',
+    emailIsRequired: 'ኢሜይል ያስፈልጋል።',
+    enterValidEmail: 'ትክክለኛውን የኢሜይል አድራሻ ያስገቡ።',
+    nameIsRequired: 'ስም ያስፈልጋል።',
+    applicationSubmitted: 'ማመልከቻ ተቀብሏል። የአስተዳዳሪ ማረጋገጫ በመጠባበቅ ላይ።',
+    unableToSubmit: 'ማመልከቻ መስገባት አልተቻለም',
+
+    // Route
+    driverConsole: 'የአሽከርካሪ ገበታ',
+    noActiveRoute: 'ምንም ንቁ መንገድ አልተመደበም',
+    noActiveRouteDescription:
+      'ዝግጁ ናችሁ። አዲስ የመንገድ ስራዎች፣ የስራ ማስኪያ ማሳወቂያዎች እና የደህንነት ማስጠንቀቂያዎች ከስራ ሰጭ እንደተላኩ እዚህ ይታያሉ።',
+    liveRouteMap: 'በቀጥታ የመንገድ ካርታ',
+    mappedStops: '{{count}} የተቆረቆሩ ማቆሚያዎች',
+    mapPreviewUnavailable: 'የካርታ ቅድመ ዕይታ አይገኝም',
+    mapFallbackDescription:
+      'የአሁኑ የመተግበሪያ ስሪት የመረቡ ካርታ ሞዱልን አይጨምርም። የመንገድ ማቆሚያዎች ከዚህ በታች አሉ።',
+    stopEtas: 'የማቆሚያ ወቅት ትንበቦች',
+    pickupOrder: 'የመውሰጃ ቅደም ተከተል',
+    student: 'ተማሪ',
+    readyForNextRoute: 'ለቀጣዩ መንገድ ዝግጁ',
+    noActiveAssignment: 'ምንም ንቁ ስራ አልተመደበም። ለስራ ማስኪያ ዝማሚያዎች በመስመር ላይ ይቆዩ።',
+    busNumber: 'አውቶቢስ {{number}}',
+    stops: 'ማቆሚያዎች',
+    nextEta: 'ቀጣይ ETA',
+    traffic: 'ትራፊክ',
+    normal: 'የተለመደ',
+    pickupStop: 'የመውሰጃ ማቆሚያ',
+    routeProgress: 'የመንገድ እግር',
+
+    // Route actions
+    acceptRoute: 'መንገድ ተቀበል',
+    confirmRouteAssignment: 'ይህን የመንገድ ስራ ከመጀመሩ በፊት ያረጋግጡ።',
+    markArrived: 'ደርሻለሁ ምልክት አድርግ',
+    reachPickupArea: 'ወደ መውሰጃ ቦታ ስትደርሱ ይህን ይጠቀሙ።',
+    startPickup: 'መውሰጃ ጀምር',
+    confirmBoarding: 'ተማሪዎች እየወጡ መሆናቸውን ያረጋግጡ።',
+    completeRoute: 'መንገድ አጠናቅቅ',
+    finishAfterDropoff: 'ከየቀሩ በኋላ መንገዱን ያጠናቅቁ።',
+    outsideTestHours: 'ከሙከራ ሰዓታት ውጭ',
+    blowIntoBusDevice: 'ወደ አውቶቢሱ መሳሪያ ይንፉ',
+    readyStartBreathCheck: 'ዝግጁ — የተንፋሽ ምርመራ ይጀምሩ',
+    breathTestWindowOnly:
+      'የተንፋሽ ምርመራዎች በታቀዱ የጠዋት እና የምሽት ሰዓታት ውስጥ ብቻ ይገኛሉ።',
+    breathTestPassed: 'የተንፋሽ ምርመራ አልፏል። አሁን ይህን መንገድ መቀበል ይችላሉ።',
+    tapStartedBlowWindow:
+      'መጀመሩን ጠቅ ያድርጉ። አሁን ወደ አውቶቢሱ መተንፋሽ ይንፉ። መስኮት በ{{seconds}} ሰከንዶች ይዘጋል።',
+    alcoholTestFailed: 'የአልኮል ምርመራ አልፏል። ተሽከርካሪውን አያሽከሩ።',
+    breathTestExpired: 'የተንፋሽ ምርመራ መስኮት አልፏል። አዲስ ለመጀመር ከዚህ በታች ጠቅ ያድርጉ።',
+    tapReadyBlow:
+      'ዝግጁ ሲሆኑ ጠቅ ያድርጉ፣ ከዚያ ይህን መንገድ ከመቀበሉ በፊት ወደ አውቶቢሱ መሳሪያ ይንፉ።',
+    noRouteAction: 'አሁን ምንም የመንገድ ድርጊት የለም።',
+
+    // Attendance
+    attendanceSubtitle: 'የተማሪ መውጣት እና መግባትን ይከታታሉ',
+    loadingAttendance: 'መገኘት በመጫን ላይ...',
+    noActiveBusAssignment: 'ምንም ንቁ የአውቶቢስ ስራ አልተመደበም',
+    attendanceToolsDescription:
+      'የመገኘት መሳሪያዎች ስራ ሰጪ የእርስዎን ንቁ መንገድ ሲመድብ ይታያሉ።',
+    expected: 'የሚጠበቅ',
+    onboard: 'የገቡ',
+    missed: 'የተቀሩ',
+    absences: 'ለታችነቶች',
+    searchStudent: 'ተማሪን በስም ወይም በመታወሻ ቁጥር ይፈልጉ',
+    students: 'ተማሪዎች',
+    noStudentsFound: 'ምንም ተማሪ አልተገኘም',
+    tryDifferentSearch: 'የተለየ ስም ወይም የተማሪ መታወሻ ቁጥር ይሞክሩ።',
+    absent: 'ቀርተዋል',
+    boarded: 'ገብተዋል',
+    selected: 'የተመረጠ',
+    select: 'ይምረጡ',
+    manualAttendance: 'በእጅ የሚደረግ መገኘት',
+    selectStudentForManual: 'በእጅ መገኘት ለመመዝገብ ከላይ ተማሪ ይምረጡ።',
+    checkIn: 'አስገባ',
+    checkOut: 'አስወጣ',
+    syncQueue: 'ረዘም ያለ ያዝጋ',
+    parentAbsenceAlerts: 'የወላጅ ለታችነት ማሳወቂያዎች',
+    noParentAbsences: 'ምንም የወላጅ ለታችነት ማሳወቂያዎች የሉም',
+    reportedAbsencesAppearHere: 'ለዚህ መንገድ የተዘገቡ ለታችነቶች እዚህ ይታያሉ።',
+    offline: 'ከመስመር ውጭ',
+    attendanceQueued: 'መገኘት ተረዝሞለታል እና በመስመር ላይ ሲሆኑ ይዛመዳል።',
+
+    // Alerts
+    communicationAlerts: 'መገናኛ እና ማሳወቂያዎች',
+    unreadAlerts: '{{count}} ያልተነበቡ ማሳወቂያዎች',
+    all: 'ሁሉም',
+    operational: 'ስራ ላይ የተዋሉ',
+    safetyLabel: 'ደህንነት',
+    loadingAlerts: 'ማሳወቂያዎች በመጫን ላይ...',
+    noAlertsFound: 'ምንም ማሳወቂያዎች አልተገኙም',
+    alertsAppearHere:
+      'የስራ ማስኪያ መልእክቶች፣ የደህንነት ማስጠንቀቂያዎች እና የመገኘት ማስታወሻዎች እዚህ ይታያሉ።',
+    markRead: 'እንደተነበበ ምልክት አድርግ',
+
+    // Safety
+    safetyEmergency: 'ደህንነት እና አደጋ',
+    safetySubtitle: 'የደህንነት ምርመራዎችን ያጠናቅቁ እና በፍጥነት ስራ ሰጪን ያግኙ።',
+    preRouteBreathCheckRequired: 'ከመንገድ በፊት የተንፋሽ ምርመራ ያስፈልጋል',
+    tapReadyOnRoute: 'የESP መቅረጫ መስኮት ለመክፈት በመንገድዎ ዝግጁን ጠቅ ያድርጉ።',
+    espOnly: 'ESP ብቻ',
+    preShiftBreathTest: 'ከመስራት በፊት የተንፋሽ ምርመራ',
+    manualBacDisabled:
+      'በእጅ የBAC ግቢ ተሰናክሎ ተቀርጿል። የESP መሳሪያ ምንባቡን በአንድ ደቂቃው የመንገድ ዝግጁነት መስኮት ውስጥ ያስገባል።',
+    emergency: 'አደጋ',
+    useSosOnly:
+      'SOS ለአስቸኳይ መንገድ፣ ለሕክምና ወይም ለተሽከርካሪ ደህንነት ክስተቶች ብቻ ይጠቀሙ።',
+    sendingSos: 'SOS በመላክ ላይ...',
+    sosPanicAlert: 'SOS / የአደጋ ማሳወቂያ',
+    speedAlertsRealtime:
+      'የፍጥነት እና የማይገለጽ እንቅስቃሴ ማስጠንቀቂያዎች በቀጥታ በማሳወቂያዎች ይላካሉ።',
+    sendSosTitle: 'SOS ልክ?',
+    sendSosMessage: 'ይህ ስራ ሰጪን እና አስተዳዳሪዎችን ወዲያውኑ ያሳውቃል።',
+    cancel: 'ሰርዝ',
+    sendSos: 'SOS ልክ',
+    sosSent: 'SOS ተልኳል',
+    sosDispatched: 'የአደጋ ማሳወቂያ ለአስተዳዳሪ ተላክቷል።',
+    unableToSendSos: 'SOS መላክ አልተቻለም',
+    pleaseTryAgain: 'እባክዎ እንደገና ይሞክሩ።',
+
+    // Feedback states
+    loadingDefault: 'በመጫን ላይ...',
+    somethingWentWrong: 'የሆነ ችግር ተፈጥሯል',
+    tryAgain: 'እንደገና ይሞክሩ',
+
+    // Misc
+    grade: 'ደረጃ {{grade}}',
   },
 } as const;
 
 export type TranslationKey = keyof typeof translations.en;
+

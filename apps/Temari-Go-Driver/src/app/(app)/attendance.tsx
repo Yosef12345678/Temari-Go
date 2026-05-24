@@ -13,11 +13,13 @@ import { ScreenShell } from '@/components/ui/screen-shell';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { TextField } from '@/components/ui/text-field';
 import { Spacing } from '@/constants/theme';
+import { useI18n } from '@/hooks/use-i18n';
 import { useDriverAttendance } from '@/hooks/use-driver-attendance';
 import { enqueue, readQueue, replaceQueue } from '@/sync/offline-queue';
 import type { AttendanceStudent } from '@/types/attendance';
 
 export default function AttendanceScreen() {
+  const { t } = useI18n();
   const [search, setSearch] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<AttendanceStudent | null>(null);
   const { summary, busId, absences, loading, error, filteredStudents, load } = useDriverAttendance(search);
@@ -28,7 +30,7 @@ export default function AttendanceScreen() {
     const net = await NetInfo.fetch();
     if (!net.isConnected) {
       await enqueue({ kind: 'manual_attendance', payload });
-      Alert.alert('Offline', 'Attendance queued and will sync when online.');
+      Alert.alert(t('offline'), t('attendanceQueued'));
       return;
     }
     await manualAttendance(payload);
@@ -57,55 +59,55 @@ export default function AttendanceScreen() {
   }
 
   return (
-    <ScreenShell title="Attendance" subtitle={summary ? `Bus ${summary.bus.bus_number} · ${summary.date}` : 'Track student boarding and exits'}>
-      {loading ? <LoadingState message="Loading attendance..." /> : null}
+    <ScreenShell title={t('attendance')} subtitle={summary ? `${t('busNumber', { number: summary.bus.bus_number })} · ${summary.date}` : t('attendanceSubtitle')}>
+      {loading ? <LoadingState message={t('loadingAttendance')} /> : null}
       {!loading && error ? <ErrorState message={error} onRetry={load} /> : null}
       {!loading && !error && !summary ? (
-        <EmptyState title="No active bus assignment" message="Attendance tools will appear when dispatch assigns your active route." />
+        <EmptyState title={t('noActiveBusAssignment')} message={t('attendanceToolsDescription')} />
       ) : null}
       {!loading && !error && summary ? (
         <>
           <View style={styles.metrics}>
-            <MetricCard icon={UsersRound} label="Expected" value={summary.statistics.totalAssignedStudents} />
-            <MetricCard icon={UserCheck} label="Onboard" value={summary.statistics.currentOnboardCount} tone="success" />
-            <MetricCard icon={UserMinus} label="Missed" value={summary.statistics.missedPickupCount} tone="danger" />
-            <MetricCard icon={ClipboardCheck} label="Absences" value={summary.statistics.reportedAbsentCount ?? 0} tone="warning" />
+            <MetricCard icon={UsersRound} label={t('expected')} value={summary.statistics.totalAssignedStudents} />
+            <MetricCard icon={UserCheck} label={t('onboard')} value={summary.statistics.currentOnboardCount} tone="success" />
+            <MetricCard icon={UserMinus} label={t('missed')} value={summary.statistics.missedPickupCount} tone="danger" />
+            <MetricCard icon={ClipboardCheck} label={t('absences')} value={summary.statistics.reportedAbsentCount ?? 0} tone="warning" />
           </View>
-          <TextField value={search} onChangeText={setSearch} placeholder="Search student by name or ID" label="Students" />
+          <TextField value={search} onChangeText={setSearch} placeholder={t('searchStudent')} label={t('students')} />
           {filteredStudents.length === 0 ? (
-            <EmptyState title="No students found" message="Try a different name or student ID." />
+            <EmptyState title={t('noStudentsFound')} message={t('tryDifferentSearch')} />
           ) : filteredStudents.map((student) => (
             <Card key={student.id} style={styles.studentCard}>
               <View style={styles.studentCopy}>
                 <ThemedText type="smallBold">{student.full_name}</ThemedText>
-                {student.grade ? <ThemedText type="small" themeColor="textSecondary">Grade {student.grade}</ThemedText> : null}
+                {student.grade ? <ThemedText type="small" themeColor="textSecondary">{t('grade', { grade: student.grade })}</ThemedText> : null}
               </View>
               <StatusBadge
-                label={student.absent ? 'Absent' : student.boarded ? 'Boarded' : 'Expected'}
+                label={student.absent ? t('absent') : student.boarded ? t('boarded') : t('expected')}
                 tone={student.absent ? 'neutral' : student.boarded ? 'success' : 'warning'}
               />
               <Button
-                label={selectedStudent?.id === student.id ? 'Selected' : 'Select'}
+                label={selectedStudent?.id === student.id ? t('selected') : t('select')}
                 variant={selectedStudent?.id === student.id ? 'default' : 'outline'}
                 onPress={() => setSelectedStudent(student)}
               />
             </Card>
           ))}
           <Card style={styles.manualCard}>
-            <ThemedText type="smallBold">Manual attendance</ThemedText>
-            <ThemedText themeColor="textSecondary">{selectedStudent ? `Selected: ${selectedStudent.full_name}` : 'Select a student above to record manual attendance.'}</ThemedText>
+            <ThemedText type="smallBold">{t('manualAttendance')}</ThemedText>
+            <ThemedText themeColor="textSecondary">{selectedStudent ? `${t('selected')}: ${selectedStudent.full_name}` : t('selectStudentForManual')}</ThemedText>
             <View style={styles.actions}>
-              <Button style={styles.action} disabled={!selectedStudent} label="Check-In" onPress={onManual} />
-              <Button style={styles.action} disabled={!selectedStudent} label="Check-Out" variant="outline" onPress={onManualExit} />
-              <Button style={styles.action} label="Sync Queue" variant="outline" onPress={flushQueue} />
+              <Button style={styles.action} disabled={!selectedStudent} label={t('checkIn')} onPress={onManual} />
+              <Button style={styles.action} disabled={!selectedStudent} label={t('checkOut')} variant="outline" onPress={onManualExit} />
+              <Button style={styles.action} label={t('syncQueue')} variant="outline" onPress={flushQueue} />
             </View>
           </Card>
-          <ThemedText type="smallBold" style={styles.section}>Parent absence alerts</ThemedText>
+          <ThemedText type="smallBold" style={styles.section}>{t('parentAbsenceAlerts')}</ThemedText>
           {absences.length === 0 ? (
-            <EmptyState title="No parent absence alerts" message="Reported absences for this route will appear here." />
+            <EmptyState title={t('noParentAbsences')} message={t('reportedAbsencesAppearHere')} />
           ) : absences.map((item) => (
             <Card key={item.id} style={styles.absenceCard}>
-              <ThemedText type="smallBold">{item.student_name ?? `Student ${item.student_id}`}</ThemedText>
+              <ThemedText type="smallBold">{item.student_name ?? `${t('student')} ${item.student_id}`}</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">{item.absence_date}</ThemedText>
               {item.reason ? <ThemedText>{item.reason}</ThemedText> : null}
             </Card>

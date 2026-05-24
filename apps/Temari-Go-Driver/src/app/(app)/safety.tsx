@@ -8,24 +8,26 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScreenShell } from '@/components/ui/screen-shell';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { useI18n } from '@/hooks/use-i18n';
 import { Spacing } from '@/constants/theme';
 
 export default function SafetyScreen() {
+  const { t } = useI18n();
   const [sosSending, setSosSending] = useState(false);
 
   async function sendSos() {
-    Alert.alert('Send SOS?', 'This will notify dispatch and administrators immediately.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('sendSosTitle'), t('sendSosMessage'), [
+      { text: t('cancel'), style: 'cancel' },
       {
-        text: 'Send SOS',
+        text: t('sendSos'),
         style: 'destructive',
         onPress: async () => {
           setSosSending(true);
           try {
             await triggerSOS({ reason: 'Driver emergency request' });
-            Alert.alert('SOS sent', 'Emergency alert was dispatched to admin.');
+            Alert.alert(t('sosSent'), t('sosDispatched'));
           } catch (e: any) {
-            Alert.alert('Unable to send SOS', e?.message ?? 'Please try again.');
+            Alert.alert(t('unableToSendSos'), e?.message ?? t('pleaseTryAgain'));
           } finally {
             setSosSending(false);
           }
@@ -35,26 +37,26 @@ export default function SafetyScreen() {
   }
 
   return (
-    <ScreenShell title="Safety & Emergency" subtitle="Complete safety checks and contact dispatch quickly.">
+    <ScreenShell title={t('safetyEmergency')} subtitle={t('safetySubtitle')}>
       <Card style={styles.statusCard}>
         <View style={styles.statusHeader}>
           <ShieldAlert size={28} color="#d97706" />
           <View style={styles.statusCopy}>
-            <ThemedText type="smallBold">Pre-route breath check required</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">Tap Ready on your route to open the ESP capture window.</ThemedText>
+            <ThemedText type="smallBold">{t('preRouteBreathCheckRequired')}</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">{t('tapReadyOnRoute')}</ThemedText>
           </View>
-          <StatusBadge label="ESP only" tone="warning" />
+          <StatusBadge label={t('espOnly')} tone="warning" />
         </View>
       </Card>
       <Card style={styles.card}>
-        <ThemedText type="smallBold">Pre-shift breath test</ThemedText>
-        <ThemedText themeColor="textSecondary">Manual BAC entry is disabled. The ESP device submits the reading during the one-minute route readiness window.</ThemedText>
+        <ThemedText type="smallBold">{t('preShiftBreathTest')}</ThemedText>
+        <ThemedText themeColor="textSecondary">{t('manualBacDisabled')}</ThemedText>
       </Card>
       <Card style={styles.card}>
-        <ThemedText type="smallBold">Emergency</ThemedText>
-        <ThemedText themeColor="textSecondary">Use SOS only for urgent route, medical, or vehicle safety events.</ThemedText>
-        <Button disabled={sosSending} onPress={sendSos} variant="destructive" label={sosSending ? 'Sending SOS...' : 'SOS / Panic Alert'} />
-        <ThemedText type="small" themeColor="textSecondary">Speed and unsafe-motion alerts are delivered in realtime via notifications.</ThemedText>
+        <ThemedText type="smallBold">{t('emergency')}</ThemedText>
+        <ThemedText themeColor="textSecondary">{t('useSosOnly')}</ThemedText>
+        <Button disabled={sosSending} onPress={sendSos} variant="destructive" label={sosSending ? t('sendingSos') : t('sosPanicAlert')} />
+        <ThemedText type="small" themeColor="textSecondary">{t('speedAlertsRealtime')}</ThemedText>
       </Card>
     </ScreenShell>
   );

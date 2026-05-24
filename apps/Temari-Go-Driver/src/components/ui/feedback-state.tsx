@@ -6,13 +6,15 @@ import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Spacing } from '@/constants/theme';
+import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 
-export function LoadingState({ message = 'Loading...' }: { message?: string }) {
+export function LoadingState({ message }: { message?: string }) {
+  const { t } = useI18n();
   return (
     <Card style={styles.stateCard}>
       <ActivityIndicator />
-      <ThemedText themeColor="textSecondary" style={styles.centerText}>{message}</ThemedText>
+      <ThemedText themeColor="textSecondary" style={styles.centerText}>{message ?? t('loadingDefault')}</ThemedText>
     </Card>
   );
 }
@@ -31,7 +33,8 @@ export function EmptyState({ title, message }: { title: string; message?: string
   );
 }
 
-export function ErrorState({ title = 'Something went wrong', message, onRetry }: { title?: string; message?: string; onRetry?: () => void }) {
+export function ErrorState({ title, message, onRetry }: { title?: string; message?: string; onRetry?: () => void }) {
+  const { t } = useI18n();
   const theme = useTheme();
 
   return (
@@ -39,9 +42,9 @@ export function ErrorState({ title = 'Something went wrong', message, onRetry }:
       <View style={[styles.iconWrap, { backgroundColor: `${theme.destructive}16` }]}>
         <TriangleAlert size={24} color={theme.destructive} />
       </View>
-      <ThemedText type="smallBold" style={styles.stateTitle}>{title}</ThemedText>
+      <ThemedText type="smallBold" style={styles.stateTitle}>{title ?? t('somethingWentWrong')}</ThemedText>
       {message ? <ThemedText themeColor="textSecondary" style={styles.centerText}>{message}</ThemedText> : null}
-      {onRetry ? <Button label="Try again" variant="outline" onPress={onRetry} /> : null}
+      {onRetry ? <Button label={t('tryAgain')} variant="outline" onPress={onRetry} /> : null}
     </Card>
   );
 }

@@ -10,20 +10,22 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { TextField } from '@/components/ui/text-field';
 import { Spacing } from '@/constants/theme';
+import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 
-function validateEmail(email: string): string | null {
+function validateEmail(email: string, t: ReturnType<typeof useI18n>['t']): string | null {
   const v = email.trim();
-  if (!v) return 'Email is required.';
-  if (!/^\S+@\S+\.\S+$/.test(v)) return 'Enter a valid email address.';
+  if (!v) return t('emailIsRequired');
+  if (!/^\S+@\S+\.\S+$/.test(v)) return t('enterValidEmail');
   return null;
 }
 
-function validateName(name: string): string | null {
-  return name.trim().length > 1 ? null : 'Name is required.';
+function validateName(name: string, t: ReturnType<typeof useI18n>['t']): string | null {
+  return name.trim().length > 1 ? null : t('nameIsRequired');
 }
 
 export default function DriverRegistrationScreen() {
+  const { t } = useI18n();
   const theme = useTheme();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -33,8 +35,8 @@ export default function DriverRegistrationScreen() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const nameError = useMemo(() => validateName(name), [name]);
-  const emailError = useMemo(() => validateEmail(email), [email]);
+  const nameError = useMemo(() => validateName(name, t), [name, t]);
+  const emailError = useMemo(() => validateEmail(email, t), [email, t]);
   const canSubmit = useMemo(
     () => !nameError && !emailError && !submitting,
     [emailError, nameError, submitting]
@@ -53,9 +55,9 @@ export default function DriverRegistrationScreen() {
         username: username.trim() ? username.trim() : null,
       });
       const payload = unwrapData(response);
-      setSuccessMessage(payload.message || 'Application submitted. Pending admin verification.');
+      setSuccessMessage(payload.message || t('applicationSubmitted'));
     } catch (e: any) {
-      setError(e?.message ?? 'Unable to submit application');
+      setError(e?.message ?? t('unableToSubmit'));
     } finally {
       setSubmitting(false);
     }
@@ -63,20 +65,20 @@ export default function DriverRegistrationScreen() {
 
   return (
     <AuthScreenShell
-      subtitle="Driver Application"
-      title="Apply to drive"
-      description="Submit your details. An admin will verify your account and send you a setup link."
+      subtitle={t('driverApplication')}
+      title={t('applyToDrive')}
+      description={t('registerDescription')}
     >
       <View style={styles.notice}>
-        <StatusBadge label="Admin verification required" tone="warning" />
+        <StatusBadge label={t('adminVerificationRequired')} tone="warning" />
         <ThemedText type="small" themeColor="textSecondary" style={styles.noticeText}>
-          Your application creates a pending driver profile for review.
+          {t('applicationNotice')}
         </ThemedText>
       </View>
 
       <TextField
-        label="Full name *"
-        placeholder="Full name"
+        label={`${t('fullName')} *`}
+        placeholder={t('fullName')}
         value={name}
         onChangeText={setName}
         editable={!submitting}
@@ -86,7 +88,7 @@ export default function DriverRegistrationScreen() {
       />
 
       <TextField
-        label="Email *"
+        label={`${t('email')} *`}
         placeholder="email@example.com"
         value={email}
         onChangeText={setEmail}
@@ -99,18 +101,18 @@ export default function DriverRegistrationScreen() {
       />
 
       <TextField
-        label="Phone number"
+        label={t('phoneNumber')}
         placeholder="+2519..."
         value={phone_number}
         onChangeText={setPhoneNumber}
         editable={!submitting}
         keyboardType="phone-pad"
         returnKeyType="next"
-        helperText="Optional, but recommended."
+        helperText={t('optionalRecommended')}
       />
 
       <TextField
-        label="Username"
+        label={t('username')}
         placeholder="@username"
         value={username}
         onChangeText={setUsername}
@@ -118,7 +120,7 @@ export default function DriverRegistrationScreen() {
         autoCapitalize="none"
         autoCorrect={false}
         returnKeyType="done"
-        helperText="Optional. Must be unique."
+        helperText={t('usernameOptional')}
       />
 
       {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
@@ -129,13 +131,13 @@ export default function DriverRegistrationScreen() {
       <Button
         disabled={!canSubmit}
         onPress={() => void handleSubmit()}
-        label={submitting ? 'Submitting...' : 'Submit application'}
+        label={submitting ? t('submitting') : t('submitApplication')}
       />
       {submitting ? <ActivityIndicator /> : null}
 
       <Pressable disabled={submitting} onPress={() => router.push('/(auth)/login' as any)}>
         <ThemedText type="linkPrimary" style={styles.link}>
-          Already have an account? Sign in
+          {t('alreadyHaveAccount')}
         </ThemedText>
       </Pressable>
     </AuthScreenShell>

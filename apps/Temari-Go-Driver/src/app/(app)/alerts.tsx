@@ -9,28 +9,30 @@ import { FilterChip } from '@/components/ui/filter-chip';
 import { ScreenShell } from '@/components/ui/screen-shell';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Spacing } from '@/constants/theme';
+import { useI18n } from '@/hooks/use-i18n';
 import { useDriverNotifications, type NotificationFilter } from '@/hooks/use-driver-notifications';
 
 export default function AlertsScreen() {
+  const { t } = useI18n();
   const [filter, setFilter] = useState<NotificationFilter>('all');
   const { filtered, unreadCount, loading, error, load, markRead } = useDriverNotifications(filter);
   const filters: { label: string; value: NotificationFilter }[] = [
-    { label: 'All', value: 'all' },
-    { label: 'Operational', value: 'operational' },
-    { label: 'Safety', value: 'safety' },
+    { label: t('all'), value: 'all' },
+    { label: t('operational'), value: 'operational' },
+    { label: t('safetyLabel'), value: 'safety' },
   ];
 
   return (
-    <ScreenShell title="Communication & Alerts" subtitle={`${unreadCount} unread alert${unreadCount === 1 ? '' : 's'}`}>
+    <ScreenShell title={t('communicationAlerts')} subtitle={t('unreadAlerts', { count: unreadCount })}>
       <ScrollView horizontal contentContainerStyle={styles.filters}>
         {filters.map((item) => (
           <FilterChip key={item.value} label={item.label} selected={filter === item.value} onPress={() => setFilter(item.value)} />
         ))}
       </ScrollView>
-      {loading ? <LoadingState message="Loading alerts..." /> : null}
+      {loading ? <LoadingState message={t('loadingAlerts')} /> : null}
       {!loading && error ? <ErrorState message={error} onRetry={load} /> : null}
       {!loading && !error && filtered.length === 0 ? (
-        <EmptyState title="No alerts found" message="Dispatch messages, safety alerts, and attendance notices will appear here." />
+        <EmptyState title={t('noAlertsFound')} message={t('alertsAppearHere')} />
       ) : null}
       {!loading && !error ? (
         <View style={styles.content}>
@@ -42,7 +44,7 @@ export default function AlertsScreen() {
             </View>
             <ThemedText>{item.message}</ThemedText>
             {!item.read ? (
-              <Button onPress={() => markRead(item)} label="Mark read" variant="outline" />
+              <Button onPress={() => markRead(item)} label={t('markRead')} variant="outline" />
             ) : null}
           </Card>
         ))}

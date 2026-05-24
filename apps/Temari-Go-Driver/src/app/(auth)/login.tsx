@@ -10,9 +10,11 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { TextField } from '@/components/ui/text-field';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useI18n } from '@/hooks/use-i18n';
 import { useSession } from '@/state/session-context';
 
 export default function LoginScreen() {
+  const { t } = useI18n();
   const { signIn } = useSession();
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -34,7 +36,7 @@ export default function LoginScreen() {
       await signIn({ emailOrUsername, password });
       router.replace('/(app)/route');
     } catch (e: any) {
-      setError(e?.message ?? 'Unable to sign in');
+      setError(e?.message ?? t('unableToSignIn'));
     } finally {
       setLoading(false);
     }
@@ -42,20 +44,20 @@ export default function LoginScreen() {
 
   return (
     <AuthScreenShell
-      subtitle="Driver Portal"
-      title="Sign In"
-      description="Use your assigned driver account credentials to continue."
+      subtitle={t('driverPortal')}
+      title={t('signIn')}
+      description={t('signInDescription')}
     >
       <View style={styles.notice}>
-        <StatusBadge label="Driver only" tone="info" />
+        <StatusBadge label={t('driverOnly')} tone="info" />
         <ThemedText type="small" themeColor="textSecondary" style={styles.noticeText}>
-          Sign in with the account verified by your Temari Go admin.
+          {t('signInNotice')}
         </ThemedText>
       </View>
 
       <TextField
-        label="Email or username"
-        placeholder="Email or Username"
+        label={t('emailOrUsername')}
+        placeholder={t('emailOrUsername')}
         autoCapitalize="none"
         autoCorrect={false}
         value={emailOrUsername}
@@ -65,8 +67,8 @@ export default function LoginScreen() {
       />
 
       <TextField
-        label="Password"
-        placeholder="Password"
+        label={t('password')}
+        placeholder={t('password')}
         secureTextEntry={!showPassword}
         value={password}
         onChangeText={setPassword}
@@ -76,7 +78,7 @@ export default function LoginScreen() {
         rightAccessory={
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+            accessibilityLabel={showPassword ? t('hidePassword') : t('showPassword')}
             onPress={() => setShowPassword((prev) => !prev)}
             hitSlop={10}
           >
@@ -88,13 +90,13 @@ export default function LoginScreen() {
       <Button
         disabled={!canSubmit}
         onPress={onSubmit}
-        label={loading ? 'Signing in...' : 'Sign In'}
+        label={loading ? t('signingIn') : t('signIn')}
       />
       {loading ? <ActivityIndicator /> : null}
 
       <Pressable disabled={loading} onPress={() => router.push('/(auth)/register' as any)}>
         <ThemedText type="linkPrimary" style={styles.link}>
-          New driver? Apply to drive
+          {t('newDriverApply')}
         </ThemedText>
       </Pressable>
     </AuthScreenShell>

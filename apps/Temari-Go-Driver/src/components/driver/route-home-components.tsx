@@ -6,6 +6,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Spacing } from '@/constants/theme';
+import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import type { AlcoholCheckSession, DriverJob, DriverJobStatus } from '@/types/driver';
 
@@ -33,6 +34,7 @@ export function SyncPill({ status, unreadCount }: { status: string; unreadCount?
 }
 
 export function RouteHero({ job, syncStatus, unreadCount }: { job: DriverJob | null; syncStatus: string; unreadCount?: number }) {
+  const { t } = useI18n();
   return (
     <Card style={styles.heroCard}>
       <View style={styles.heroTopRow}>
@@ -41,24 +43,25 @@ export function RouteHero({ job, syncStatus, unreadCount }: { job: DriverJob | n
         </View>
         <SyncPill status={syncStatus} unreadCount={unreadCount} />
       </View>
-      <ThemedText type="subtitle" style={styles.heroTitle}>{job?.name ?? 'Ready for your next route'}</ThemedText>
+      <ThemedText type="subtitle" style={styles.heroTitle}>{job?.name ?? t('readyForNextRoute')}</ThemedText>
       <ThemedText themeColor="textSecondary" style={styles.heroSubtitle}>
-        {job ? `Bus ${job.bus?.bus_number ?? job.bus_id} · ${formatStatus(job.lifecycle_status)}` : 'No active assignment yet. Stay online for dispatch updates.'}
+        {job ? `${t('busNumber', { number: job.bus?.bus_number ?? job.bus_id })} · ${formatStatus(job.lifecycle_status)}` : t('noActiveAssignment')}
       </ThemedText>
     </Card>
   );
 }
 
 export function RouteStats({ job }: { job: DriverJob }) {
+  const { t } = useI18n();
   const stopCount = job.route_stops_eta?.length ?? 0;
   const nextEta = job.route_stops_eta?.[0]?.eta_minutes;
-  const multiplier = job.traffic_multiplier ? `${job.traffic_multiplier}x` : 'Normal';
+  const multiplier = job.traffic_multiplier ? `${job.traffic_multiplier}x` : t('normal');
 
   return (
     <View style={styles.statsGrid}>
-      <StatCard icon={UsersRound} label="Stops" value={`${stopCount}`} />
-      <StatCard icon={Clock3} label="Next ETA" value={typeof nextEta === 'number' ? `${nextEta} min` : '--'} />
-      <StatCard icon={Route} label="Traffic" value={multiplier} />
+      <StatCard icon={UsersRound} label={t('stops')} value={`${stopCount}`} />
+      <StatCard icon={Clock3} label={t('nextEta')} value={typeof nextEta === 'number' ? `${nextEta} min` : '--'} />
+      <StatCard icon={Route} label={t('traffic')} value={multiplier} />
     </View>
   );
 }
@@ -73,6 +76,7 @@ export function SectionHeader({ title, detail }: { title: string; detail?: strin
 }
 
 export function StopEtaCard({ index, name, etaMinutes }: { index: number; name: string; etaMinutes: number }) {
+  const { t } = useI18n();
   const theme = useTheme();
 
   return (
@@ -82,7 +86,7 @@ export function StopEtaCard({ index, name, etaMinutes }: { index: number; name: 
       </View>
       <View style={styles.stopCopy}>
         <ThemedText type="smallBold">{name}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">Pickup stop</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">{t('pickupStop')}</ThemedText>
       </View>
       <View style={styles.etaWrap}>
         <MapPinned size={14} color={theme.icon} />
@@ -94,12 +98,14 @@ export function StopEtaCard({ index, name, etaMinutes }: { index: number; name: 
 
 type RouteTransitionAction = 'accept' | 'arrive' | 'pickup' | 'complete';
 
-const NEXT_ACTION: Partial<Record<DriverJobStatus, { action: RouteTransitionAction; label: string; helper: string }>> = {
-  assigned: { action: 'accept', label: 'Accept route', helper: 'Confirm this route assignment before starting.' },
-  accepted: { action: 'arrive', label: 'Mark arrived', helper: 'Use this when you reach the pickup area.' },
-  arrived: { action: 'pickup', label: 'Start pickup', helper: 'Confirm students are boarding.' },
-  picked_up: { action: 'complete', label: 'Complete route', helper: 'Finish the route after drop-off is done.' },
-};
+function nextActionConfig(t: ReturnType<typeof useI18n>['t']): Partial<Record<DriverJobStatus, { action: RouteTransitionAction; label: string; helper: string }>> {
+  return {
+    assigned: { action: 'accept', label: t('acceptRoute'), helper: t('confirmRouteAssignment') },
+    accepted: { action: 'arrive', label: t('markArrived'), helper: t('reachPickupArea') },
+    arrived: { action: 'pickup', label: t('startPickup'), helper: t('confirmBoarding') },
+    picked_up: { action: 'complete', label: t('completeRoute'), helper: t('finishAfterDropoff') },
+  };
+}
 
 export function RouteActionPanel({
   status,
@@ -118,39 +124,40 @@ export function RouteActionPanel({
   secondsRemaining?: number;
   pendingAction?: RouteTransitionAction | null;
 }) {
-  const next = NEXT_ACTION[status];
+  const { t } = useI18n();
+  const next = nextActionConfig(t)[status];
   const outsideSchedule = status === 'assigned' && !scheduleActive;
   const acceptBlocked =
     status === 'assigned' &&
     (outsideSchedule || alcoholCheck?.status === 'pending' || alcoholCheck?.status === 'failed');
   const acceptLabel = status === 'assigned'
     ? outsideSchedule
-      ? 'Outside test hours'
+      ? t('outsideTestHours')
       : alcoholCheck?.status === 'passed'
-        ? 'Accept route'
+        ? t('acceptRoute')
         : alcoholCheck?.status === 'pending'
-          ? 'Blow into bus device'
-          : 'Ready — start breath check'
+          ? t('blowIntoBusDevice')
+          : t('readyStartBreathCheck')
     : next?.label;
   const helper = status === 'assigned'
     ? outsideSchedule
-      ? scheduleLabel ?? 'Breath tests are only available during scheduled morning and afternoon windows.'
+      ? scheduleLabel ?? t('breathTestWindowOnly')
       : alcoholCheck?.status === 'passed'
-        ? 'Breath test passed. You can now accept this route.'
+        ? t('breathTestPassed')
         : alcoholCheck?.status === 'pending'
-          ? `Tap started. Blow into the bus breathalyzer now. Window closes in ${secondsRemaining ?? 0}s.`
+          ? t('tapStartedBlowWindow', { seconds: secondsRemaining ?? 0 })
           : alcoholCheck?.status === 'failed'
-            ? 'Alcohol test failed. Do not operate the vehicle.'
+            ? t('alcoholTestFailed')
             : alcoholCheck?.status === 'expired'
-              ? 'Breath test window expired. Tap below to start a new check.'
-              : 'Tap when ready, then blow into the bus device before accepting this route.'
+              ? t('breathTestExpired')
+              : t('tapReadyBlow')
     : next?.helper;
 
   return (
     <Card style={styles.actionCard}>
       <View style={styles.actionHeader}>
         <CheckCircle2 size={18} color="#16a34a" />
-        <ThemedText type="smallBold">Route progress</ThemedText>
+        <ThemedText type="smallBold">{t('routeProgress')}</ThemedText>
       </View>
       {next ? (
         <>
@@ -163,7 +170,7 @@ export function RouteActionPanel({
           />
         </>
       ) : (
-        <ThemedText themeColor="textSecondary">No route action is currently available.</ThemedText>
+        <ThemedText themeColor="textSecondary">{t('noRouteAction')}</ThemedText>
       )}
     </Card>
   );

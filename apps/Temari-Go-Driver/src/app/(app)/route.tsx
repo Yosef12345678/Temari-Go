@@ -18,6 +18,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useI18n } from '@/hooks/use-i18n';
 import { useSession } from '@/state/session-context';
 import type { AlcoholCheckView, DriverJob } from '@/types/driver';
 
@@ -28,6 +29,7 @@ const isNativeMapAvailable =
 type RouteTransitionAction = 'accept' | 'arrive' | 'pickup' | 'complete';
 
 export default function RouteScreen() {
+  const { t } = useI18n();
   const theme = useTheme();
   const { signOut } = useSession();
   const [loading, setLoading] = useState(true);
@@ -116,16 +118,16 @@ export default function RouteScreen() {
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.header}>
-        <AppBrand compact subtitle="Driver console" />
-        <Button label="Logout" variant="outline" onPress={signOut} />
+        <AppBrand compact subtitle={t('driverConsole')} />
+        <Button label={t('logout')} variant="outline" onPress={signOut} />
       </View>
       {!job ? (
         <View style={styles.emptyWrap}>
           <RouteHero job={null} syncStatus={sync?.status ?? 'degraded'} unreadCount={sync?.unreadCount} />
           <Card style={styles.emptyCard}>
-            <ThemedText type="subtitle" style={styles.emptyTitle}>No active route assigned</ThemedText>
+            <ThemedText type="subtitle" style={styles.emptyTitle}>{t('noActiveRoute')}</ThemedText>
             <ThemedText themeColor="textSecondary" style={styles.emptyText}>
-              You are all set. New route assignments, operational notices, and safety alerts will appear here as soon as dispatch sends them.
+              {t('noActiveRouteDescription')}
             </ThemedText>
           </Card>
         </View>
@@ -134,7 +136,7 @@ export default function RouteScreen() {
           <RouteHero job={job} syncStatus={sync?.status ?? 'degraded'} unreadCount={sync?.unreadCount} />
           <RouteStats job={job} />
           <Card style={styles.mapCard}>
-            <SectionHeader title="Live route map" detail={`${coordinates.length} mapped stops`} />
+            <SectionHeader title={t('liveRouteMap')} detail={t('mappedStops', { count: coordinates.length })} />
             {isNativeMapAvailable ? (
               <View style={styles.mapWrap}>
                 <MapView
@@ -154,19 +156,19 @@ export default function RouteScreen() {
               </View>
             ) : (
               <View style={styles.mapFallback}>
-                <ThemedText type="smallBold">Map preview unavailable</ThemedText>
+                <ThemedText type="smallBold">{t('mapPreviewUnavailable')}</ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
-                  The current app build does not include the native maps module. Route stops are still listed below.
+                  {t('mapFallbackDescription')}
                 </ThemedText>
               </View>
             )}
           </Card>
-          <SectionHeader title="Stop ETAs" detail="Pickup order" />
+          <SectionHeader title={t('stopEtas')} detail={t('pickupOrder')} />
           {(job.route_stops_eta ?? []).map((stop) => (
             <StopEtaCard
               key={stop.assignment_id}
               index={stop.pickup_order ?? 0}
-              name={stop.student_name ?? `Student ${stop.student_id}`}
+              name={stop.student_name ?? `${t('student')} ${stop.student_id}`}
               etaMinutes={stop.eta_minutes}
             />
           ))}

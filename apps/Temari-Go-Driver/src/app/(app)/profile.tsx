@@ -50,7 +50,7 @@ export default function ProfileScreen() {
               </View>
               <View style={styles.identityCopy}>
                 <ThemedText type="subtitle" style={styles.name}>{valueOrFallback(profile.name, t('notProvided'))}</ThemedText>
-                <StatusBadge label={String(profile.role ?? 'driver')} tone="info" />
+                <StatusBadge label={String(profile.role ?? t('driver'))} tone="info" />
               </View>
             </View>
           </Card>

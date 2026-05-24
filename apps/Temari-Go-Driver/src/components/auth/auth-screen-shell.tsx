@@ -6,6 +6,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Card } from '@/components/ui/card';
 import { Spacing } from '@/constants/theme';
+import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 
 type AuthScreenShellProps = {
@@ -16,6 +17,7 @@ type AuthScreenShellProps = {
 };
 
 export function AuthScreenShell({ subtitle, title, description, children }: AuthScreenShellProps) {
+  const { t } = useI18n();
   const theme = useTheme();
 
   return (
@@ -25,9 +27,9 @@ export function AuthScreenShell({ subtitle, title, description, children }: Auth
           <View style={[styles.hero, { borderColor: theme.border, backgroundColor: theme.backgroundElement }]}>
             <AppBrand subtitle={subtitle} />
             <View style={styles.heroCopy}>
-              <ThemedText type="smallBold" style={{ color: theme.tint }}>Driver secure access</ThemedText>
+              <ThemedText type="smallBold" style={{ color: theme.tint }}>{t('driverSecureAccess')}</ThemedText>
               <ThemedText type="small" themeColor="textSecondary" style={styles.heroText}>
-                Manage routes, attendance, safety checks, and alerts from one driver console.
+                {t('driverConsoleDescription')}
               </ThemedText>
             </View>
           </View>
