@@ -35,10 +35,13 @@ dotenv.config();
 const app = express();
 
 const isDev = process.env.NODE_ENV !== 'production';
-const corsOrigins = (process.env.CORS_ORIGINS ?? '')
-	.split(',')
-	.map((s) => s.trim())
-	.filter(Boolean);
+const corsOrigins = [
+	...(process.env.CORS_ORIGINS ?? '')
+		.split(',')
+		.map((s) => s.trim())
+		.filter(Boolean),
+	...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL.trim()] : []),
+].filter((origin, index, list) => list.indexOf(origin) === index);
 
 function isExpoDevOrigin(origin: string): boolean {
 	// Expo web dev server commonly runs on ports like 8081 and 19006.
