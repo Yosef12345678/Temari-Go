@@ -5,10 +5,11 @@ import { useTranslation } from 'react-i18next';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { Colors } from '@/constants/theme';
-import { useResolvedColorScheme } from '@/hooks/use-color-scheme';
+import { usePreferences } from '@/src/state/preferences-context';
 
 export default function TabLayout() {
-  const theme = useResolvedColorScheme();
+  const { resolvedTheme } = usePreferences();
+  const theme = resolvedTheme;
   const { t } = useTranslation();
 
   return (

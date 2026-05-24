@@ -4,7 +4,6 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import '../global.css';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { NAV_THEME } from '@/lib/theme';
 import { AppProviders } from '@/src/hooks/AppProviders';
 import { useAuth } from '@/src/hooks/useAuth';
@@ -14,6 +13,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { registerPushTokenOncePerBoot } from '@/src/utils/push/registerPushToken';
 import { PortalHost } from '@rn-primitives/portal';
 import { initI18n } from '@/src/i18n';
+import { PreferencesProvider, usePreferences } from '@/src/state/preferences-context';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -62,17 +62,24 @@ function AuthGate() {
   return null;
 }
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const activeTheme = colorScheme === 'dark' ? 'dark' : 'light';
+function AppRoot() {
+  const { resolvedTheme, bootstrapComplete } = usePreferences();
 
   useEffect(() => {
     void initI18n();
   }, []);
 
+  if (!bootstrapComplete) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
   return (
     <AppProviders>
-      <ThemeProvider value={NAV_THEME[activeTheme]}>
+      <ThemeProvider value={NAV_THEME[resolvedTheme]}>
         <AuthGate />
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -83,9 +90,17 @@ export default function RootLayout() {
           <Stack.Screen name="modals/live-chat" options={{ presentation: 'modal', headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>
-        <StatusBar style={activeTheme === 'dark' ? 'light' : 'dark'} />
+        <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
         <PortalHost />
       </ThemeProvider>
     </AppProviders>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <PreferencesProvider>
+      <AppRoot />
+    </PreferencesProvider>
   );
 }

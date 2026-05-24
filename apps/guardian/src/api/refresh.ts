@@ -1,7 +1,8 @@
 import { request } from './http';
 import { getRefreshToken, setTokens } from './tokenStore';
 import type { ApiEnvelope } from './envelope';
-import { writeTokens } from '@/src/storage/secureTokens';
+import { clearTokens, writeTokens } from '@/src/storage/secureTokens';
+import { emitSessionExpired } from '@/src/auth/sessionEvents';
 import type { ApiError } from './http';
 
 type RefreshData = {
@@ -44,6 +45,8 @@ export async function refreshAndUpdateSession(): Promise<boolean> {
       // Only force re-login when the refresh token is invalid/expired (or missing).
       if (status === 401 && (code === 'INVALID_TOKEN' || code === 'TOKEN_EXPIRED' || code === 'UNAUTHORIZED' || !code)) {
         setTokens(null);
+        await clearTokens();
+        emitSessionExpired();
       }
       return false;
     } finally {

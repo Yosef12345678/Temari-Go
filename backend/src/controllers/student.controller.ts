@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { db } from '../../models';
 import { GeofenceService } from '../services/geofence.service';
 
-const { Student, User, RFIDCard, Attendance, Payment, RouteAssignment, Route, Bus } = db;
+const { Student, User, RFIDCard, Attendance, Payment, RouteAssignment, Route, Bus, School } = db;
 
 /**
  * Helper: check if current user is admin
@@ -161,24 +161,40 @@ export const getAllStudents = async (req: Request, res: Response, next: NextFunc
 			where.grade = req.query.grade;
 		}
 
-		// Filter by bus_id via route assignments
+		let busIdFilter: number | null = null;
 		if (req.query.busId) {
 			const busId = Number(req.query.busId);
 			if (!Number.isNaN(busId)) {
-				include.push({
-					model: RouteAssignment,
-					required: true,
-					include: [
-						{
-							model: Route,
-							where: { bus_id: busId },
-							attributes: [],
-						},
-					],
-					attributes: [],
-				});
+				busIdFilter = busId;
 			}
 		}
+
+		include.push({
+			model: RouteAssignment,
+			required: busIdFilter !== null,
+			attributes: ['route_id', 'student_id'],
+			include: [
+				{
+					model: Route,
+					where: busIdFilter !== null ? { bus_id: busIdFilter } : undefined,
+					attributes: ['id', 'name', 'bus_id'],
+					include: [
+						{
+							model: Bus,
+							attributes: ['id', 'bus_number', 'school_id'],
+							include: [
+								{
+									model: School,
+									as: 'school',
+									attributes: ['id', 'name'],
+									required: false,
+								},
+							],
+						},
+					],
+				},
+			],
+		});
 
 		const students = await Student.findAll({
 			where,
@@ -240,12 +256,18 @@ export const getStudentById = async (req: Request, res: Response, next: NextFunc
 							include: [
 								{
 									model: Bus,
-									attributes: ['id', 'bus_number', 'driver_id'],
+									attributes: ['id', 'bus_number', 'driver_id', 'school_id'],
 									include: [
 										{
 											model: User,
 											as: 'driver',
 											attributes: ['id', 'name', 'phone_number'],
+										},
+										{
+											model: School,
+											as: 'school',
+											attributes: ['id', 'name'],
+											required: false,
 										},
 									],
 								},
@@ -297,6 +319,8 @@ export const getStudentById = async (req: Request, res: Response, next: NextFunc
 		const studentJson = student.toJSON() as any;
 		studentJson.busId = bus?.id ?? studentJson.busId ?? studentJson.bus_id ?? null;
 		studentJson.route_name = route?.name ?? studentJson.route_name ?? null;
+		studentJson.school_id = bus?.school_id ?? studentJson.school_id ?? null;
+		studentJson.school_name = bus?.school?.name ?? studentJson.school_name ?? null;
 		studentJson.driver_id = driver?.id ?? bus?.driver_id ?? null;
 		studentJson.driver_name = driver?.name ?? null;
 		studentJson.driver_phone_number = driver?.phone_number ?? null;

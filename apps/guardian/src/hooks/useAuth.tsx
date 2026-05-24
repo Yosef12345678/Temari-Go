@@ -3,6 +3,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import type { AuthTokens } from '@/src/api/tokenStore';
 import { request } from '@/src/api/http';
 import { bootstrapSession, clearSession, setSession, type SessionState } from '@/src/storage/session';
+import { subscribeToSessionExpired } from '@/src/auth/sessionEvents';
 import type { ApiEnvelope } from '@/src/api/envelope';
 import type { LoginData, RegisterRequest } from '@/src/types/auth';
 
@@ -28,6 +29,12 @@ export function AuthProvider(props: { children: React.ReactNode }) {
   useEffect(() => {
     void restore();
   }, [restore]);
+
+  useEffect(() => {
+    return subscribeToSessionExpired(() => {
+      setSessionState({ status: 'unauthenticated', tokens: null });
+    });
+  }, []);
 
   const login = useCallback(async (payload: { emailOrUsername: string; password: string }) => {
     // Backend: { success: true, data: { user, tokens: { accessToken, refreshToken } } }

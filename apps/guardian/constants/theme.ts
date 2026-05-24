@@ -19,6 +19,9 @@ export const Colors = {
     tabIconSelected: tintColorLight,
     border: '#e5e7eb',
     destructive: '#ef4444',
+    backgroundElement: '#F0F0F3',
+    backgroundSelected: '#E0E1E6',
+    textSecondary: '#60646C',
   },
   dark: {
     text: '#f8fafc',
@@ -30,8 +33,21 @@ export const Colors = {
     // CSS `--border: oklch(1 0 0 / 10%)` approximated by alpha-blending over the dark background.
     border: '#1b1f2f',
     destructive: '#ff6467',
+    backgroundElement: '#212225',
+    backgroundSelected: '#2E3135',
+    textSecondary: '#B0B4BA',
   },
 };
+
+export const Spacing = {
+  half: 2,
+  one: 4,
+  two: 8,
+  three: 16,
+  four: 24,
+  five: 32,
+  six: 64,
+} as const;
 
 export const Fonts = Platform.select({
   ios: {

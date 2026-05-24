@@ -58,7 +58,7 @@ export default function ChildDetailScreen() {
   const emphasisBackground = useThemeColor({ light: '#eff6ff', dark: '#0f1d34' }, 'background');
 
   const studentName = String(student.full_name ?? t('students.fallbackStudent'));
-  const schoolName = String(student.school_name ?? student.schoolName ?? t('childDetail.schoolNotAvailable'));
+  const schoolName = resolveSchoolName(student, t);
   const studentGrade = String(student.grade ?? '-');
   const studentCode = String(student.student_id ?? student.studentId ?? student.id ?? id ?? '-');
   const routeName = String(student.route_name ?? t('childDetail.notAssigned'));
@@ -480,6 +480,16 @@ function getInitials(name: string) {
 
 function formatStopLabel(point: BusLocationPoint) {
   return `${Number(point.latitude).toFixed(4)}, ${Number(point.longitude).toFixed(4)}`;
+}
+
+function resolveSchoolName(student: Record<string, unknown>, t: (key: string, options?: any) => string) {
+  const routeAssignments = Array.isArray(student.routeAssignments) ? student.routeAssignments : Array.isArray(student.route_assignments) ? student.route_assignments : [];
+  const firstAssignment = routeAssignments[0] as Record<string, unknown> | undefined;
+  const route = (firstAssignment?.route ?? student.route) as Record<string, unknown> | undefined;
+  const bus = (route?.bus ?? student.bus ?? student.assignedBus ?? student.assigned_bus) as Record<string, unknown> | undefined;
+  const school = (bus?.school ?? student.school) as Record<string, unknown> | undefined;
+  const value = String(student.school_name ?? student.schoolName ?? school?.name ?? school?.school_name ?? bus?.school_name ?? bus?.schoolName ?? student.school ?? '').trim();
+  return value || t('childDetail.schoolNotAvailable');
 }
 
 function formatTimestamp(value: string | undefined, t: (key: string, options?: any) => string) {

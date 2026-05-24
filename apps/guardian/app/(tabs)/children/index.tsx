@@ -550,7 +550,12 @@ function resolveAvatarUrl(student: StudentListItem) {
 
 function resolveSchoolName(student: StudentListItem, t: (key: string, options?: any) => string) {
   const source = student as Record<string, unknown>;
-  const value = String(source.school_name ?? source.schoolName ?? source.school ?? '').trim();
+  const routeAssignments = Array.isArray(source.routeAssignments) ? source.routeAssignments : Array.isArray(source.route_assignments) ? source.route_assignments : [];
+  const firstAssignment = routeAssignments[0] as Record<string, unknown> | undefined;
+  const route = (firstAssignment?.route ?? source.route) as Record<string, unknown> | undefined;
+  const bus = (route?.bus ?? source.bus ?? source.assignedBus ?? source.assigned_bus) as Record<string, unknown> | undefined;
+  const school = (bus?.school ?? source.school) as Record<string, unknown> | undefined;
+  const value = String(source.school_name ?? source.schoolName ?? school?.name ?? school?.school_name ?? bus?.school_name ?? bus?.schoolName ?? source.school ?? '').trim();
   return value || t('students.schoolUnavailable');
 }
 

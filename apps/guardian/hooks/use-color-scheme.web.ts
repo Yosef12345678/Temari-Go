@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useColorScheme as useRNColorScheme } from 'react-native';
 
+import { usePreferences } from '@/src/state/preferences-context';
+
 /**
  * To support static rendering, this value needs to be re-calculated on the client side for web
  */
@@ -20,7 +22,8 @@ export function useColorScheme() {
   return 'light';
 }
 
+/** Resolves theme preference (including manual override) to a concrete theme key. */
 export function useResolvedColorScheme(): 'light' | 'dark' {
-  const scheme = useColorScheme();
-  return scheme === 'dark' ? 'dark' : 'light';
+  const { resolvedTheme } = usePreferences();
+  return resolvedTheme;
 }

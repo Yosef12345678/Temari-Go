@@ -1,9 +1,9 @@
 export { useColorScheme } from 'react-native';
 
-import { useColorScheme as useRNColorScheme } from 'react-native';
+import { usePreferences } from '@/src/state/preferences-context';
 
-/** Resolves `unspecified` / `null` system values to a concrete theme key. */
+/** Resolves theme preference (including manual override) to a concrete theme key. */
 export function useResolvedColorScheme(): 'light' | 'dark' {
-  const scheme = useRNColorScheme();
-  return scheme === 'dark' ? 'dark' : 'light';
+  const { resolvedTheme } = usePreferences();
+  return resolvedTheme;
 }
