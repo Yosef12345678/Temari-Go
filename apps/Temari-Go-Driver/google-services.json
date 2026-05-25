@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "188875673348",
+    "project_id": "temari-go-3ba9a",
+    "storage_bucket": "temari-go-3ba9a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:188875673348:android:cdcc22d33db4245fca8a51",
+        "android_client_info": {
+          "package_name": "com.davie10.driver"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBrfNdY8BGaIW5fltvUzD3ngB8nHNN6-jQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

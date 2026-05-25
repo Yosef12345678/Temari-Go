@@ -14,12 +14,16 @@ const config: ExpoConfig = {
   scheme: 'temarigodriver',
   userInterfaceStyle: 'automatic',
   ios: {
+    bundleIdentifier: 'com.davie10.driver',
     icon: './assets/images/icon.png',
     config: {
       googleMapsApiKey: IOS_GOOGLE_MAPS_API_KEY,
     },
   },
   android: {
+    package: 'com.davie10.driver',
+    googleServicesFile: './google-services.json',
+    permissions: ['POST_NOTIFICATIONS'],
     adaptiveIcon: {
       backgroundColor: '#E6F4FE',
       foregroundImage: './assets/images/android-icon-foreground.png',
@@ -39,6 +43,7 @@ const config: ExpoConfig = {
   },
   plugins: [
     'expo-router',
+    'expo-notifications',
     [
       'expo-splash-screen',
       {
@@ -59,6 +64,9 @@ const config: ExpoConfig = {
     GOOGLE_MAPS_WEB_URL,
     GOOGLE_MAPS_IOS_CONFIGURED: Boolean(IOS_GOOGLE_MAPS_API_KEY),
     GOOGLE_MAPS_ANDROID_CONFIGURED: Boolean(ANDROID_GOOGLE_MAPS_API_KEY),
+    eas: {
+      projectId: '184f25e5-e6d6-42d1-8864-e7bfbe00d6b1',
+    },
   },
 };
 
