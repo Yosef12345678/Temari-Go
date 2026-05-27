@@ -1,12 +1,12 @@
 import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: Number(process.env.SMTP_PORT) || 465,
+  secure: (Number(process.env.SMTP_PORT) || 465) === 465,
   auth: {
-    user: process.env.NODEMAILER_USER,
-    pass: process.env.NODEMAILER_APP_PASSWORD,
+    user: process.env.SMTP_USER || process.env.NODEMAILER_USER,
+    pass: process.env.SMTP_PASS || process.env.NODEMAILER_APP_PASSWORD,
   },
 });
 
@@ -20,9 +20,9 @@ export async function sendPasswordResetEmail(data: PasswordResetEmailData): Prom
   const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${data.resetToken}`;
   
   const mailOptions = {
-    from: process.env.NODEMAILER_USER,
+    from: process.env.SMTP_USER || process.env.NODEMAILER_USER,
     to: data.email,
-    subject: 'Password Reset Request - Phoenix Auth',
+    subject: 'Password Reset Request - Temari Go',
     html: `
       <!DOCTYPE html>
       <html>
@@ -82,13 +82,13 @@ export async function sendPasswordResetEmail(data: PasswordResetEmailData): Prom
         <body>
           <div class="header">
             <h1>🔐 Password Reset Request</h1>
-            <p>Phoenix Auth System</p>
+            <p>Temari Go</p>
           </div>
           
           <div class="content">
             <h2>Hello ${data.userName}!</h2>
             
-            <p>We received a request to reset your password for your Phoenix Auth account. If you made this request, click the button below to reset your password:</p>
+            <p>We received a request to reset your password for your Temari Go account. If you made this request, click the button below to reset your password:</p>
             
             <div style="text-align: center;">
               <a href="${resetUrl}" class="button">Reset My Password</a>
@@ -111,22 +111,22 @@ export async function sendPasswordResetEmail(data: PasswordResetEmailData): Prom
             <p>If you're having trouble clicking the button, copy and paste the URL above into your web browser.</p>
             
             <p>Best regards,<br>
-            The Phoenix Auth Team</p>
+            The Temari Go Team</p>
           </div>
           
           <div class="footer">
-            <p>This email was sent from Phoenix Auth System. If you have any questions, please contact our support team.</p>
-            <p>© 2024 Phoenix Auth. All rights reserved.</p>
+            <p>This email was sent from Temari Go. If you have any questions, please contact our support team.</p>
+            <p>© 2024 Temari Go. All rights reserved.</p>
           </div>
         </body>
       </html>
     `,
     text: `
-      Password Reset Request - Phoenix Auth
+      Password Reset Request - Temari Go
       
       Hello ${data.userName}!
       
-      We received a request to reset your password for your Phoenix Auth account. 
+      We received a request to reset your password for your Temari Go account. 
       If you made this request, please click the link below to reset your password:
       
       ${resetUrl}
@@ -137,7 +137,7 @@ export async function sendPasswordResetEmail(data: PasswordResetEmailData): Prom
       Your password will not be changed until you click the link above.
       
       Best regards,
-      The Phoenix Auth Team
+      The Temari Go Team
     `
   };
 

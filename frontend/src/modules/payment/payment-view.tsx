@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
 import { authClient } from "@/lib/auth-client";
 import { paymentAPI, type Payment } from "@/lib/payment-api";
@@ -52,6 +53,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Wallet, Plus, MoreHorizontal, Loader2, RefreshCw, FileText, Send } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { toast } from "sonner";
 
 function formatDate(val: string): string {
@@ -337,10 +346,27 @@ export function PaymentsPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6 p-6">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/home">Home</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Payments</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Payments</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+            <Wallet className="size-6 text-primary" aria-hidden />
+            Payments
+          </h1>
           <p className="text-muted-foreground mt-1">
             Create payments and monitor the ledger.
           </p>

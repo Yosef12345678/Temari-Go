@@ -142,6 +142,20 @@ export class RouteService {
 					attributes: ['id', 'bus_number', 'capacity', 'driver_id'],
 					required: false,
 				},
+				{
+					model: RouteAssignment,
+					as: 'routeAssignments',
+					attributes: ['id', 'student_id', 'pickup_latitude', 'pickup_longitude', 'pickup_order'],
+					required: false,
+					include: [
+						{
+							model: Student,
+							as: 'student',
+							attributes: ['id', 'full_name', 'grade', 'parent_id'],
+							required: false,
+						},
+					],
+				},
 			],
 			where: Object.keys(where).length ? where : undefined,
 			order: [['name', 'ASC']],
