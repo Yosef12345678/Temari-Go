@@ -1,7 +1,14 @@
 import { request } from '@/src/api/http';
-import type { NotificationListResponse } from '@/src/types/notification';
+import type { NotificationItem, NotificationListResponse } from '@/src/types/notification';
 import type { ApiEnvelope } from '@/src/api/envelope';
 import { unwrapData } from '@/src/api/envelope';
+
+function transformNotification(item: any): NotificationItem {
+  return {
+    ...item,
+    read: !!item.read_at,
+  };
+}
 
 export async function listNotifications(query?: {
   type?: string;
@@ -12,11 +19,11 @@ export async function listNotifications(query?: {
   offset?: number;
 }): Promise<NotificationListResponse> {
   const res = await request<ApiEnvelope<NotificationListResponse['data']>>('GET', '/notifications', { auth: true, query });
-  return { data: res.data, pagination: res.pagination };
+  return { data: (res.data ?? []).map(transformNotification), pagination: res.pagination };
 }
 
 export async function markRead(id: string): Promise<unknown> {
   const res = await request<ApiEnvelope<unknown>>('PUT', `/notifications/${encodeURIComponent(id)}/read`, { auth: true });
-  return unwrapData(res);
+  return transformNotification(unwrapData(res) as any);
 }
 

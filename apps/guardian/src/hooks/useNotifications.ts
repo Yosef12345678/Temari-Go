@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import * as notificationsApi from '@/src/api/notifications';
+import type { NotificationItem, NotificationListResponse } from '@/src/types/notification';
 
 import { queryKeys } from './queryKeys';
 
@@ -18,6 +19,22 @@ export function useNotifications(filters?: {
   });
 }
 
+function markNotificationReadInCache(
+  value: unknown,
+  id: string
+): NotificationListResponse | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const response = value as NotificationListResponse;
+  if (!response?.data || !Array.isArray(response.data)) return undefined;
+
+  return {
+    ...response,
+    data: response.data.map((item) =>
+      String(item.id) === String(id) ? { ...item, read: true } : item
+    ),
+  };
+}
+
 export function useMarkNotificationRead() {
   const qc = useQueryClient();
   return useMutation({
@@ -28,16 +45,8 @@ export function useMarkNotificationRead() {
       const previousQueries = qc.getQueriesData({ queryKey: ['notifications'] });
 
       previousQueries.forEach(([key, value]) => {
-        if (!value || typeof value !== 'object' || !('data' in value) || !Array.isArray((value as any).data)) {
-          return;
-        }
-
-        qc.setQueryData(key, {
-          ...(value as Record<string, unknown>),
-          data: (value as any).data.map((item: Record<string, unknown>) =>
-            String(item.id ?? '') === id ? { ...item, read: true } : item
-          ),
-        });
+        const nextValue = markNotificationReadInCache(value, id);
+        if (nextValue) qc.setQueryData(key, nextValue);
       });
 
       return { previousQueries };

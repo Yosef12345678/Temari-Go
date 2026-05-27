@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { AttendanceService, type AttendanceScanInput, type ManualAttendanceInput } from '../services/attendance.service';
+import { db } from '../../models';
 
 /**
  * Process RFID scan from microcontroller
@@ -287,14 +288,38 @@ export const getStudentAttendance = async (req: Request, res: Response) => {
 	try {
 		const { studentId } = req.params;
 		const { startDate, endDate } = req.query;
+		const role = req.user?.role ?? '';
+		const userId = Number(req.user?.id);
 
 		const start = startDate ? new Date(startDate as string) : undefined;
 		const end = endDate ? new Date(endDate as string) : undefined;
 
-		const allowedBusIds = await AttendanceService.resolveAllowedBusIdsForUser(
-			Number(req.user?.id),
-			req.user?.role ?? ''
-		);
+		let allowedBusIds: number[] | null | undefined;
+		if (role === 'parent') {
+			const student = await db.Student.findByPk(Number(studentId), {
+				attributes: ['id', 'parent_id'],
+			});
+			if (!student) {
+				return res.status(404).json({
+					success: false,
+					code: 'STUDENT_NOT_FOUND',
+					message: 'Student not found.',
+				});
+			}
+			if (Number(student.parent_id) !== userId) {
+				return res.status(403).json({
+					success: false,
+					code: 'FORBIDDEN_STUDENT',
+					message: 'You are not allowed to access this student attendance.',
+				});
+			}
+			allowedBusIds = null;
+		} else {
+			allowedBusIds = await AttendanceService.resolveAllowedBusIdsForUser(
+				userId,
+				role
+			);
+		}
 
 		const attendance = await AttendanceService.getStudentAttendance(
 			Number(studentId),
