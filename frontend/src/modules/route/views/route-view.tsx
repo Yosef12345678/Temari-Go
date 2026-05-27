@@ -199,6 +199,7 @@ export function RouteView() {
       ]);
       setBuses(Array.isArray(busResult?.items) ? busResult.items : []);
       setStudents(Array.isArray(studentResult) ? studentResult : []);
+      setError(null);
     } catch (err) {
       console.error('Failed to load buses/students', err);
     }
@@ -212,6 +213,7 @@ export function RouteView() {
         bus_id: busFilterId,
       });
       setRoutes(Array.isArray(data) ? data : []);
+      setError(null);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to load routes';
       setError(msg);
@@ -239,12 +241,16 @@ export function RouteView() {
   }, [token, runDateFilter]);
 
   useEffect(() => {
-    void loadOptions();
-  }, [loadOptions]);
+    if (token) {
+      void loadOptions();
+    }
+  }, [loadOptions, token]);
 
   useEffect(() => {
-    void loadRoutes();
-  }, [loadRoutes]);
+    if (token) {
+      void loadRoutes();
+    }
+  }, [loadRoutes, token]);
 
   useEffect(() => {
     if (activeTab === 'runs') {

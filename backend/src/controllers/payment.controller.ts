@@ -463,12 +463,32 @@ export const verifyPayment = async (req: Request, res: Response, next: NextFunct
       });
     }
 
-    const id = req.params.id;
-    const url = `https://api.chapa.co/v1/transaction/verify/${id}`;
+    const paymentId = req.params.id;
+    
+    // Fetch payment to get the transaction reference (tx_ref)
+    const payment = await PaymentService.getPaymentById(parseInt(paymentId, 10));
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        code: 'PAYMENT_NOT_FOUND',
+        message: 'Payment not found',
+      });
+    }
+
+    const txRef = payment.chapa_transaction_id;
+    if (!txRef) {
+      return res.status(400).json({
+        success: false,
+        code: 'NO_TRANSACTION_REF',
+        message: 'Payment has no transaction reference',
+      });
+    }
+
+    const url = `https://api.chapa.co/v1/transaction/verify/${txRef}`;
     const cfg = makeConfig();
     const response = await axios.get(url, cfg);
 
-    // Try to update payment if it exists
+    // Try to update payment status
     try {
       const paymentData = response.data.data;
       const status = paymentData.status;
@@ -479,14 +499,13 @@ export const verifyPayment = async (req: Request, res: Response, next: NextFunct
         paymentStatus = 'failed';
       }
 
-      await PaymentService.updatePaymentByTransactionId(
-        id,
-        paymentStatus,
-        paymentData.payment_method
-      );
+      await PaymentService.updatePaymentStatus(parseInt(paymentId, 10), paymentStatus);
+      if (paymentData.payment_method) {
+        await payment.update({ payment_method: paymentData.payment_method });
+      }
     } catch (updateErr) {
-      // Payment might not exist yet, that's okay for manual verification
-      console.log('Payment not found in database, verification only');
+      // Payment update failed, but verification succeeded
+      console.log('Payment update failed, but verification succeeded:', updateErr);
     }
 
     return res.json({

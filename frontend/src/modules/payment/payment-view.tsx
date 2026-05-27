@@ -342,7 +342,7 @@ export function PaymentsPage() {
         <div>
           <h1 className="text-2xl font-semibold">Payments</h1>
           <p className="text-muted-foreground mt-1">
-            Create payments and monitor the ledger. Parents complete payment on the Chapa gateway.
+            Create payments and monitor the ledger.
           </p>
         </div>
         <Button onClick={openCreateDialog} className="gap-2">

@@ -81,7 +81,6 @@ const paymentsItems = [
 
 const settingsItems = [
   { title: "Integrations", url: "/integrations", icon: Plug },
-  { title: "Plugins", url: "/plugins/vapi", icon: Puzzle },
 ];
 
 const sidebarGroups: { label: string; items: typeof overviewItems }[] = [

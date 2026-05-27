@@ -162,6 +162,7 @@ export function AttendanceView({
       ]);
       setStudents(Array.isArray(studentsData) ? studentsData : []);
       setBuses(Array.isArray(busesData) ? busesData : []);
+      setError(null);
     } catch (err) {
       console.error("Failed to load filter options:", err);
     } finally {
@@ -222,10 +223,10 @@ export function AttendanceView({
   }, [user]);
 
   useEffect(() => {
-    if (students.length === 0 || buses.length === 0) {
+    if (accessToken && (students.length === 0 || buses.length === 0)) {
       loadFilterOptions();
     }
-  }, [loadFilterOptions, students.length, buses.length]);
+  }, [loadFilterOptions, students.length, buses.length, accessToken]);
 
   useEffect(() => {
     const hasInitial =
@@ -236,7 +237,7 @@ export function AttendanceView({
       initialFilters.startDate === (startDate || undefined) &&
       initialFilters.endDate === (endDate || undefined) &&
       (initialFilters.page ?? 0) === currentPage;
-    if (!hasInitial) {
+    if (accessToken && !hasInitial) {
       loadAttendances();
     }
   }, [
@@ -246,6 +247,7 @@ export function AttendanceView({
     startDate,
     endDate,
     currentPage,
+    accessToken,
   ]);
 
   const handleRefresh = useCallback(() => {
