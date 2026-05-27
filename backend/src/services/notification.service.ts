@@ -151,10 +151,24 @@ export class NotificationService {
 		attendanceType: 'boarding' | 'exiting',
 		location?: string
 	): Promise<void> {
-		const message =
-			attendanceType === 'boarding'
-				? `${studentName} has boarded the bus${location ? ` at ${location}` : ''}`
-				: `${studentName} has exited the bus${location ? ` at ${location}` : ''}`;
+		const normalizedLocation = (location || '').toLowerCase();
+		const isHome = normalizedLocation === 'home';
+		const isSchool = normalizedLocation === 'school';
+
+		let message: string;
+		if (isHome && attendanceType === 'boarding') {
+			message = `${studentName} boarded the bus from home (morning pickup).`;
+		} else if (isHome && attendanceType === 'exiting') {
+			message = `${studentName} exited the bus at home (afternoon drop-off).`;
+		} else if (isSchool && attendanceType === 'exiting') {
+			message = `${studentName} exited the bus at school.`;
+		} else if (isSchool && attendanceType === 'boarding') {
+			message = `${studentName} boarded the bus from school.`;
+		} else if (attendanceType === 'boarding') {
+			message = `${studentName} has boarded the bus${location ? ` at ${location}` : ''}.`;
+		} else {
+			message = `${studentName} has exited the bus${location ? ` at ${location}` : ''}.`;
+		}
 
 		await this.sendNotification({
 			userId: parentId,

@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useFCM } from "@/hooks/use-fcm";
 
 interface AdminGuardProps {
   children: React.ReactNode;
@@ -9,6 +10,10 @@ interface AdminGuardProps {
 
 export const AdminGuard = ({ children }: AdminGuardProps) => {
   const { user, loading } = useAuth();
+  useFCM({
+    autoRegister: true,
+    currentUser: user,
+  });
 
   if (loading) {
     return (

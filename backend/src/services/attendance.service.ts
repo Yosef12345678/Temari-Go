@@ -49,6 +49,21 @@ export interface ParentAbsenceInput {
 }
 
 export class AttendanceService {
+	private static getEATHour(timestamp?: string | Date): number {
+		const date = timestamp ? new Date(timestamp) : new Date();
+		const eatTime = new Intl.DateTimeFormat('en-GB', {
+			timeZone: 'Africa/Nairobi',
+			hour: '2-digit',
+			hour12: false,
+		}).format(date);
+		return Number(eatTime);
+	}
+
+	private static isMorningEAT(timestamp?: string | Date): boolean {
+		const hour = this.getEATHour(timestamp);
+		return hour >= 6 && hour < 12;
+	}
+
 	static async resolveAllowedBusIdsForUser(userId: number, role: string): Promise<number[] | null> {
 		if (role === 'admin') return null;
 		if (role !== 'driver') return [];
@@ -171,19 +186,25 @@ export class AttendanceService {
 			);
 
 			if (matchedGeofence) {
-				// If within school geofence, student is exiting
-				// If within home geofence, student is boarding
-				attendanceType = matchedGeofence.type === 'school' ? 'exiting' : 'boarding';
+				// School scans remain exiting. Home scans depend on EAT time window:
+				// morning (06:00-11:59) => boarding, afternoon (12:00+) => exiting.
+				if (matchedGeofence.type === 'school') {
+					attendanceType = 'exiting';
+				} else {
+					attendanceType = this.isMorningEAT(input.timestamp)
+						? 'boarding'
+						: 'exiting';
+				}
 			} else {
 				// If not in any geofence, use time-based heuristics
 				// Morning scans are typically boarding, afternoon are exiting
-				const hour = new Date(input.timestamp || Date.now()).getHours();
-				attendanceType = hour < 12 ? 'boarding' : 'exiting';
+				attendanceType = this.isMorningEAT(input.timestamp)
+					? 'boarding'
+					: 'exiting';
 			}
 		} else {
 			// No geofences configured, use time-based heuristics
-			const hour = new Date(input.timestamp || Date.now()).getHours();
-			attendanceType = hour < 12 ? 'boarding' : 'exiting';
+			attendanceType = this.isMorningEAT(input.timestamp) ? 'boarding' : 'exiting';
 		}
 
 		const recentScan = await Attendance.findOne({

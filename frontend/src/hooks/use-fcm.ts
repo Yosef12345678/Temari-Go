@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { requestNotificationPermission, onMessageListener } from '@/lib/firebase';
 import { API_BASE_URL } from '@/lib/auth';
 import { authClient } from '@/lib/auth-client';
+import { User } from '@/lib/auth';
 
 interface UseFCMReturn {
   token: string | null;
@@ -15,7 +16,13 @@ interface UseFCMReturn {
   sendTestNotification: () => Promise<void>;
 }
 
-export const useFCM = (): UseFCMReturn => {
+interface UseFCMOptions {
+  autoRegister?: boolean;
+  currentUser?: User | null;
+}
+
+export const useFCM = (options: UseFCMOptions = {}): UseFCMReturn => {
+  const { autoRegister = false, currentUser = null } = options;
   const [token, setToken] = useState<string | null>(null);
   const [permission, setPermission] = useState<NotificationPermission | null>(null);
   const [loading, setLoading] = useState(true);
@@ -115,6 +122,32 @@ export const useFCM = (): UseFCMReturn => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!autoRegister || !isSupported || loading) {
+      return;
+    }
+
+    if (!currentUser || currentUser.role !== 'admin') {
+      return;
+    }
+
+    if (permission === 'denied') {
+      return;
+    }
+
+    const storedAssignedToken = localStorage.getItem(`fcm_token_assigned_${currentUser.id}`);
+    if (token && storedAssignedToken === token) {
+      return;
+    }
+
+    void requestPermission().then(() => {
+      const activeToken = localStorage.getItem('fcm_token');
+      if (activeToken) {
+        localStorage.setItem(`fcm_token_assigned_${currentUser.id}`, activeToken);
+      }
+    });
+  }, [autoRegister, isSupported, loading, currentUser, permission, token]);
 
   // Send test notification
   const sendTestNotification = async () => {
