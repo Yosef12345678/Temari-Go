@@ -38,6 +38,7 @@ static constexpr uint32_t WIFI_RETRY_MS = 15000;
 static constexpr uint32_t LOCATION_POST_MS = 60000; // 1 minute
 static constexpr uint32_t LCD_REFRESH_MS = 500;
 static constexpr uint32_t ATTENDANCE_SYNC_MS = 20000;
+static constexpr uint32_t ALCOHOL_CHECK_POLL_MS = 10000; // 10 seconds
 static constexpr uint32_t MQ3_CALIBRATE_AFTER_BOOT_MS = 30000; // MQ sensors need warm-up
 static constexpr size_t ATTENDANCE_SYNC_BATCH_MAX = 20;
 static constexpr float MQ3_TO_MG_L_SCALE = 0.10f; // normalized 0..1 => 0..0.10 mg/L
@@ -180,10 +181,12 @@ void loop() {
   static uint32_t lastLocationPostMs = 0;
   static uint32_t lastLcdRefreshMs = 0;
   static uint32_t lastAttendanceSyncMs = 0;
+  static uint32_t lastAlcoholCheckPollMs = 0;
   static int lastSubmittedAlcoholCheckId = 0;
   static uint32_t lastBreathAttemptMs = 0;
   static bool breathArmed = true;
   static bool mq3Calibrated = false;
+  static bool alcoholCheckPending = false;
 
   const uint32_t now = millis();
 
@@ -232,34 +235,59 @@ void loop() {
     buzzer.beepCard();
     lcd.showLastCard(uid);
 
-    const GpsFix& fix = gps.lastFix();
-    if (WiFi.status() == WL_CONNECTED && fix.valid) {
-      AttendanceScanPayload scan{};
-      scan.rfid_tag = uid;
-      scan.latitude = fix.lat;
-      scan.longitude = fix.lon;
-      scan.has_bus_id = true;
-      scan.bus_id = config.busId;
-      scan.has_vehicle_id = false;
-      scan.has_timestamp = fix.has_timestamp;
-      scan.timestamp_iso8601 = fix.timestamp_iso8601;
-      scan.has_event_id = false;
+    // Block attendance if alcohol check is pending
+    if (alcoholCheckPending) {
+      Serial.println("Alcohol check pending - blocking attendance scan");
+      lcd.showMsg("Breath Test", "In Progress");
+      buzzer.beepError();
+      delay(2000);
+      lcd.showLastCard(uid);
+    } else {
+      const GpsFix& fix = gps.lastFix();
+      if (WiFi.status() == WL_CONNECTED && fix.valid) {
+        AttendanceScanPayload scan{};
+        scan.rfid_tag = uid;
+        scan.latitude = fix.lat;
+        scan.longitude = fix.lon;
+        scan.has_bus_id = true;
+        scan.bus_id = config.busId;
+        scan.has_vehicle_id = false;
+        scan.has_timestamp = fix.has_timestamp;
+        scan.timestamp_iso8601 = fix.timestamp_iso8601;
+        scan.has_event_id = false;
 
-      String resp;
-      const bool ok = backend.postAttendanceScan(scan, &resp);
-      Serial.println(resp);
-      if (ok) {
-        buzzer.beepOk();
+        String resp;
+        const bool ok = backend.postAttendanceScan(scan, &resp);
+        Serial.println(resp);
+        if (ok) {
+          buzzer.beepOk();
+        } else {
+          buzzer.beepError();
+          Serial.print("Attendance scan failed status=");
+          Serial.print(backend.lastHttpStatus());
+          Serial.print(" err=");
+          Serial.println(backend.lastError());
+          AttendanceSyncRecord rec{};
+          rec.rfid_tag = uid;
+          rec.latitude = fix.lat;
+          rec.longitude = fix.lon;
+          rec.has_bus_id = true;
+          rec.bus_id = config.busId;
+          rec.has_vehicle_id = false;
+          rec.has_timestamp = fix.has_timestamp;
+          rec.timestamp_iso8601 = fix.timestamp_iso8601;
+          rec.has_event_id = true;
+          rec.event_id = String((uint32_t)ESP.getEfuseMac(), HEX) + "-" + String(now) + "-" + String(esp_random(), HEX);
+          attendanceQueue.enqueue(rec);
+        }
       } else {
         buzzer.beepError();
-        Serial.print("Attendance scan failed status=");
-        Serial.print(backend.lastHttpStatus());
-        Serial.print(" err=");
-        Serial.println(backend.lastError());
+        // Policy: if no GPS fix, we still enqueue with 0/0 coords; backend requires coords, so you may want
+        // to block scan until fix is available or enrich later before sync.
         AttendanceSyncRecord rec{};
         rec.rfid_tag = uid;
-        rec.latitude = fix.lat;
-        rec.longitude = fix.lon;
+        rec.latitude = fix.valid ? fix.lat : 0.0;
+        rec.longitude = fix.valid ? fix.lon : 0.0;
         rec.has_bus_id = true;
         rec.bus_id = config.busId;
         rec.has_vehicle_id = false;
@@ -269,22 +297,6 @@ void loop() {
         rec.event_id = String((uint32_t)ESP.getEfuseMac(), HEX) + "-" + String(now) + "-" + String(esp_random(), HEX);
         attendanceQueue.enqueue(rec);
       }
-    } else {
-      buzzer.beepError();
-      // Policy: if no GPS fix, we still enqueue with 0/0 coords; backend requires coords, so you may want
-      // to block scan until fix is available or enrich later before sync.
-      AttendanceSyncRecord rec{};
-      rec.rfid_tag = uid;
-      rec.latitude = fix.valid ? fix.lat : 0.0;
-      rec.longitude = fix.valid ? fix.lon : 0.0;
-      rec.has_bus_id = true;
-      rec.bus_id = config.busId;
-      rec.has_vehicle_id = false;
-      rec.has_timestamp = fix.has_timestamp;
-      rec.timestamp_iso8601 = fix.timestamp_iso8601;
-      rec.has_event_id = true;
-      rec.event_id = String((uint32_t)ESP.getEfuseMac(), HEX) + "-" + String(now) + "-" + String(esp_random(), HEX);
-      attendanceQueue.enqueue(rec);
     }
   }
 
@@ -314,13 +326,40 @@ void loop() {
     }
   }
 
-  // Driver-initiated breath test: HTTP only after a blow, and only in EAT schedule windows.
-  if (WiFi.status() == WL_CONNECTED && mq3Calibrated && isAlcoholCheckWindowActive()) {
+  // Periodic alcohol check status polling (every 10 seconds during test window)
+  if (WiFi.status() == WL_CONNECTED && isAlcoholCheckWindowActive() && (now - lastAlcoholCheckPollMs) >= ALCOHOL_CHECK_POLL_MS) {
+    lastAlcoholCheckPollMs = now;
+    Serial.println("Polling alcohol check status...");
+    AlcoholCheckStatus check{};
+    String checkResp;
+    const bool checkOk = backend.getAlcoholCheckDevice(&check, &checkResp);
+    Serial.print("Alcohol check response: ");
+    Serial.println(checkResp);
+    if (!checkOk) {
+      Serial.print("Alcohol check API failed status=");
+      Serial.print(backend.lastHttpStatus());
+      Serial.print(" err=");
+      Serial.println(backend.lastError());
+      // Keep previous pending state on transient network/API errors.
+      // If we already know a check is pending, continue requiring a blow.
+    } else {
+      alcoholCheckPending = check.active && check.status == "pending";
+      Serial.print("Alcohol check pending: ");
+      Serial.println(alcoholCheckPending ? "YES" : "NO");
+    }
+  }
+
+  // When backend says a check is pending, actively wait for a breath sample and submit on blow.
+  if (WiFi.status() == WL_CONNECTED && mq3Calibrated && alcoholCheckPending) {
+    lcd.showMsg("Breath Test", "Blow now");
     if (breathSampleDetected(mq3) && breathArmed && (now - lastBreathAttemptMs) >= BREATH_COOLDOWN_MS) {
       breathArmed = false;
       lastBreathAttemptMs = now;
       lcd.showMsg("Breath", "Sending...");
-      submitAlcoholReadingIfPending(&lastSubmittedAlcoholCheckId);
+      const bool submitted = submitAlcoholReadingIfPending(&lastSubmittedAlcoholCheckId);
+      if (submitted) {
+        Serial.println("Breath sample submitted for pending alcohol check.");
+      }
       breathArmed = true;
     }
   }

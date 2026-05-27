@@ -138,15 +138,22 @@ export default function ChildAttendanceScreen() {
           const eventTime = getEventTimestamp(item);
           const locationLabel = String(item.location ?? item.location_name ?? item.stopName ?? item.stop_name ?? '').trim();
           return (
-            <View style={[styles.card, { borderColor, backgroundColor: cardBackground }]}>
+            <View style={[styles.card, { borderColor, backgroundColor: softBackground }]}>
               <View style={styles.rowTop}>
                 <View style={styles.titleRow}>
                   <EventIcon kind={kind} iconColor={iconColor} successColor={successColor} warningColor={warningColor} />
                   <ThemedText type="defaultSemiBold">{eventType}</ThemedText>
                 </View>
-                <Badge variant={kind === 'boarding' ? 'default' : 'secondary'}>
-                  <ThemedText>{getEventBadge(kind, t)}</ThemedText>
-                </Badge>
+                <View style={[
+                  styles.badge,
+                  kind === 'boarding' 
+                    ? { backgroundColor: tint } 
+                    : { backgroundColor: softBackground, borderColor }
+                ]}>
+                  <ThemedText style={kind === 'boarding' ? styles.badgeTextLight : styles.badgeTextDark}>
+                    {getEventBadge(kind, t)}
+                  </ThemedText>
+                </View>
               </View>
               <View style={styles.metaRow}>
                 <Clock3 color={mutedText} size={14} />
@@ -184,6 +191,9 @@ const styles = StyleSheet.create({
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 4 },
   emptyText: { textAlign: 'center', marginTop: 12, opacity: 0.75 },
   errorText: { fontSize: 14 },
+  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1 },
+  badgeTextLight: { color: '#ffffff', fontSize: 12, fontWeight: '600' },
+  badgeTextDark: { fontSize: 12, fontWeight: '600' },
 });
 
 function SummaryTile({ label, value, borderColor, backgroundColor }: { label: string; value: number; borderColor: string; backgroundColor: string }) {

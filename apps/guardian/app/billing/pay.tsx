@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowRight, CircleDollarSign, Mail, UserRound } from 'lucide-react-native';
+import { ArrowRight, CircleDollarSign, Lock, Mail, UserRound } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
@@ -51,27 +51,32 @@ export default function PayScreen() {
           <CardContent style={styles.formBody}>
             <View style={styles.field}>
               <ThemedText type="defaultSemiBold">{t('payScreen.invoiceId')}</ThemedText>
-              <TextInput
-                value={invoiceId}
-                editable={false}
-                selectTextOnFocus={false}
-                style={[styles.input, { borderColor, backgroundColor: inputBackground }]}
-                placeholder={t('payScreen.invoiceIdPlaceholder')}
-              />
+              <View style={[styles.inputWithIcon, styles.readonlyInput, { borderColor, backgroundColor: inputBackground }]}>
+                <CircleDollarSign color={iconColor} size={16} />
+                <TextInput
+                  value={invoiceId}
+                  editable={false}
+                  selectTextOnFocus={false}
+                  style={[styles.inputInner, styles.readonlyText]}
+                  placeholder={t('payScreen.invoiceIdPlaceholder')}
+                />
+                <Lock color={iconColor} size={14} opacity={0.5} />
+              </View>
             </View>
             <View style={styles.field}>
               <ThemedText type="defaultSemiBold">{t('payScreen.amount')}</ThemedText>
-              <View style={[styles.inputWithIcon, { borderColor, backgroundColor: inputBackground }]}>
+              <View style={[styles.inputWithIcon, styles.readonlyInput, { borderColor, backgroundColor: inputBackground }]}>
                 <CircleDollarSign color={iconColor} size={16} />
                 <TextInput
                   value={amount}
                   onChangeText={setAmount}
                   editable={false}
                   selectTextOnFocus={false}
-                  style={styles.inputInner}
+                  style={[styles.inputInner, styles.readonlyText]}
                   placeholder={t('payScreen.amount')}
                   keyboardType="numeric"
                 />
+                <Lock color={iconColor} size={14} opacity={0.5} />
               </View>
               {presetStudentId ? (
                 <ThemedText style={styles.helperText}>{t('payScreen.studentLabel', { id: presetStudentId })}</ThemedText>
@@ -79,22 +84,33 @@ export default function PayScreen() {
             </View>
             <View style={styles.field}>
               <ThemedText type="defaultSemiBold">{t('payScreen.email')}</ThemedText>
-              <View style={[styles.inputWithIcon, { borderColor, backgroundColor: inputBackground }]}>
+              <View style={[styles.inputWithIcon, styles.readonlyInput, { borderColor, backgroundColor: inputBackground }]}>
                 <Mail color={iconColor} size={16} />
                 <TextInput
                   value={email}
                   onChangeText={setEmail}
-                  style={styles.inputInner}
+                  editable={false}
+                  selectTextOnFocus={false}
+                  style={[styles.inputInner, styles.readonlyText]}
                   placeholder={t('payScreen.emailPlaceholder')}
                   autoCapitalize="none"
                 />
+                <Lock color={iconColor} size={14} opacity={0.5} />
               </View>
             </View>
             <View style={styles.field}>
               <ThemedText type="defaultSemiBold">{t('payScreen.fullName')}</ThemedText>
-              <View style={[styles.inputWithIcon, { borderColor, backgroundColor: inputBackground }]}>
+              <View style={[styles.inputWithIcon, styles.readonlyInput, { borderColor, backgroundColor: inputBackground }]}>
                 <UserRound color={iconColor} size={16} />
-                <TextInput value={full_name} onChangeText={setFullName} style={styles.inputInner} placeholder={t('payScreen.fullNamePlaceholder')} />
+                <TextInput
+                  value={full_name}
+                  onChangeText={setFullName}
+                  editable={false}
+                  selectTextOnFocus={false}
+                  style={[styles.inputInner, styles.readonlyText]}
+                  placeholder={t('payScreen.fullNamePlaceholder')}
+                />
+                <Lock color={iconColor} size={14} opacity={0.5} />
               </View>
             </View>
           </CardContent>
@@ -155,6 +171,12 @@ const styles = StyleSheet.create({
   inputInner: {
     flex: 1,
     paddingVertical: 0,
+  },
+  readonlyInput: {
+    opacity: 0.7,
+  },
+  readonlyText: {
+    opacity: 0.7,
   },
   helperText: { opacity: 0.78, fontSize: 13 },
   button: {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
-import { ArrowRight, CheckCircle2, Clock3, CreditCard, ReceiptText, WalletCards, XCircle } from 'lucide-react-native';
+import { ArrowRight, CheckCircle2, Clock3, CreditCard, ReceiptText, WalletCards, XCircle, Flag } from 'lucide-react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Badge } from '@/components/ui/badge';
@@ -84,10 +84,14 @@ type InvoiceCardProps = {
   theme: BillingTheme;
   t: Translation;
   onPay: () => void;
+  isOldestPayable?: boolean;
 };
 
-export function InvoiceCard({ item, theme, t, onPay }: InvoiceCardProps) {
+export function InvoiceCard({ item, theme, t, onPay, isOldestPayable }: InvoiceCardProps) {
   const dueDate = resolveInvoiceDueDate(item);
+  const isPayable = isInvoicePayable(item);
+  const canPay = isPayable && isOldestPayable;
+
   return (
     <Card style={[styles.card, { borderColor: theme.borderColor, backgroundColor: theme.cardBackground }]}>
       <CardHeader style={styles.cardHeader}>
@@ -95,7 +99,14 @@ export function InvoiceCard({ item, theme, t, onPay }: InvoiceCardProps) {
           <ReceiptText color={theme.iconColor} size={18} />
           <CardTitle>{t('billingTab.invoiceNumber', { id: String(item.id) })}</CardTitle>
         </View>
-        <BillingStatusBadge status={String(item.status ?? '')} theme={theme} />
+        <View style={styles.cardHeaderRight}>
+          {isOldestPayable && isPayable ? (
+            <View style={[styles.oldestIconBadge, { backgroundColor: theme.tint }]}>
+              <Flag color="#ffffff" size={14} />
+            </View>
+          ) : null}
+          <BillingStatusBadge status={String(item.status ?? '')} theme={theme} />
+        </View>
       </CardHeader>
       <CardContent style={styles.cardBody}>
         <InfoRow label={t('billingTab.amount')} value={String(item.amount ?? '-')} strong />
@@ -106,11 +117,18 @@ export function InvoiceCard({ item, theme, t, onPay }: InvoiceCardProps) {
             <ThemedText>{formatBillingDate(dueDate)}</ThemedText>
           </View>
         </View>
-        {isInvoicePayable(item) ? (
-          <Pressable accessibilityRole="button" style={[styles.invoicePayButton, { backgroundColor: theme.tint }]} onPress={onPay}>
+        {isPayable ? (
+          <Pressable
+            accessibilityRole="button"
+            style={[styles.invoicePayButton, { backgroundColor: canPay ? theme.tint : theme.mutedText, opacity: canPay ? 1 : 0.5 }]}
+            onPress={canPay ? onPay : undefined}
+            disabled={!canPay}
+          >
             <View style={styles.buttonInner}>
-              <ThemedText type="defaultSemiBold" lightColor="#ffffff" darkColor="#020617">{t('billingTab.payInvoice')}</ThemedText>
-              <ArrowRight color="#ffffff" size={16} />
+              <ThemedText type="defaultSemiBold" lightColor="#ffffff" darkColor="#020617">
+                {canPay ? t('billingTab.payInvoice') : t('billingTab.payOldestFirst')}
+              </ThemedText>
+              {canPay && <ArrowRight color="#ffffff" size={16} />}
             </View>
           </Pressable>
         ) : null}
@@ -250,6 +268,7 @@ const styles = StyleSheet.create({
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 16, paddingTop: 16 },
   cardTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  cardHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   cardBody: { gap: 8, paddingTop: 2, paddingBottom: 16, paddingHorizontal: 16 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   invoicePayButton: { marginTop: 8, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 14, alignItems: 'center' },
@@ -257,6 +276,7 @@ const styles = StyleSheet.create({
   metaInline: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   badgeInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   badgeText: { fontSize: 13, lineHeight: 17 },
+  oldestIconBadge: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   emptyCard: { borderWidth: 1, borderRadius: 18, paddingVertical: 0 },
   emptyBody: { alignItems: 'center', gap: 8, paddingVertical: 16 },
   emptyImage: { width: 150, height: 92 },

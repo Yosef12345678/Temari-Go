@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 export default function PaymentSuccessPage() {
@@ -15,15 +13,10 @@ export default function PaymentSuccessPage() {
           </div>
           <h1 className="text-xl font-semibold">Payment completed</h1>
           <p className="text-sm text-muted-foreground">
-            The payment was processed successfully. You can return to Payments to
+            The payment was processed successfully. You can return to the app to
             view the updated ledger.
           </p>
         </CardHeader>
-        <CardContent className="flex justify-center">
-          <Button asChild>
-            <Link href="/payments">Back to Payments</Link>
-          </Button>
-        </CardContent>
       </Card>
     </div>
   );
