@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,6 +32,16 @@ export default function BillingTab() {
   const me = useMe();
   const invoices = useInvoices({ limit: 50, offset: 0 });
   const payments = usePaymentsByParent(me.data?.id ?? '', { limit: 20, offset: 0 });
+
+  // Clear payment status after 5 seconds
+  useEffect(() => {
+    if (params.paymentStatus) {
+      const timer = setTimeout(() => {
+        router.setParams({ paymentStatus: undefined } as any);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [params.paymentStatus, router]);
   const borderColor = useThemeColor({}, 'border');
   const cardBackground = useThemeColor({}, 'background');
   const tint = useThemeColor({}, 'tint');
@@ -54,8 +64,16 @@ export default function BillingTab() {
   const isRefreshing = invoices.isRefetching || payments.isRefetching;
   const invoiceItems = invoices.data?.data ?? [];
   const paymentItems = payments.data?.data ?? [];
-  const dueInvoices = invoiceItems.filter((item: any) => isInvoicePayable(item));
-  const paidInvoices = invoiceItems.filter((item: any) => String(item.status ?? '').trim().toLowerCase() === 'paid');
+  // Sort invoices by due date (oldest first) to match backend payment logic
+  const sortedInvoices = [...invoiceItems].sort((a: any, b: any) => {
+    const dateA = new Date(resolveInvoiceDueDate(a) || 0);
+    const dateB = new Date(resolveInvoiceDueDate(b) || 0);
+    return dateA.getTime() - dateB.getTime();
+  });
+  const dueInvoices = sortedInvoices.filter((item: any) => isInvoicePayable(item));
+  const paidInvoices = sortedInvoices.filter((item: any) => String(item.status ?? '').trim().toLowerCase() === 'paid');
+  // Find the oldest payable invoice (will be paid first)
+  const oldestPayableInvoiceId = dueInvoices.length > 0 ? dueInvoices[0].id : null;
 
   return (
     <ThemedView style={[styles.container, { paddingTop: insets.top + 12 }]}>
@@ -106,12 +124,13 @@ export default function BillingTab() {
             </ThemedText>
           ) : null}
 
-          {invoiceItems.map((item: any) => (
+          {sortedInvoices.map((item: any) => (
             <InvoiceCard
               key={String(item.id)}
               item={item}
               theme={billingTheme}
               t={t}
+              isOldestPayable={String(item.id) === String(oldestPayableInvoiceId)}
               onPay={() =>
                 router.push({
                   pathname: '/billing/pay' as any,
