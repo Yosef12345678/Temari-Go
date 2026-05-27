@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -11,6 +11,8 @@ import {
   type Student,
   type Bus,
   type AttendanceFilters,
+  type ParentAbsence,
+  type ParentAbsenceFilters,
 } from "@/lib/attendance-api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,6 +63,8 @@ import {
   Loader2,
   ClipboardList,
   Info,
+  CalendarX,
+  UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -100,8 +104,7 @@ export function AttendanceView({
   initialFilters = {},
 }: AttendanceViewProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
   const [attendances, setAttendances] = useState<AttendanceRecord[]>(
@@ -128,9 +131,19 @@ export function AttendanceView({
   const [buses, setBuses] = useState<Bus[]>(initialBuses);
   const [optionsLoading, setOptionsLoading] = useState(false);
 
+  // Parent absences state
+  const [parentAbsences, setParentAbsences] = useState<ParentAbsence[]>([]);
+  const [absencesTotal, setAbsencesTotal] = useState(0);
+  const [absencesLoading, setAbsencesLoading] = useState(false);
+  const [absencesError, setAbsencesError] = useState<string | null>(null);
+  const [showAbsences, setShowAbsences] = useState(false);
+  const [absencesPage, setAbsencesPage] = useState(0);
+  const [selectedAbsenceStatus, setSelectedAbsenceStatus] = useState<string>("");
+
   const isMobile = useIsMobile();
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages - 1);
+  const absencesTotalPages = Math.max(1, Math.ceil(absencesTotal / PAGE_SIZE));
 
   const apiFilters = useMemo((): AttendanceFilters => {
     const f: AttendanceFilters = {
@@ -237,7 +250,7 @@ export function AttendanceView({
       initialFilters.startDate === (startDate || undefined) &&
       initialFilters.endDate === (endDate || undefined) &&
       (initialFilters.page ?? 0) === currentPage;
-    if (accessToken && !hasInitial) {
+    if (!authLoading && !hasInitial) {
       loadAttendances();
     }
   }, [
@@ -248,6 +261,15 @@ export function AttendanceView({
     endDate,
     currentPage,
     accessToken,
+    authLoading,
+    initialAttendance.attendances?.length,
+    initialFilters.busId,
+    initialFilters.endDate,
+    initialFilters.page,
+    initialFilters.startDate,
+    initialFilters.studentId,
+    initialFilters.type,
+    loadAttendances,
   ]);
 
   const handleRefresh = useCallback(() => {
@@ -263,6 +285,43 @@ export function AttendanceView({
     setPage(0);
   }, []);
 
+  const loadParentAbsences = useCallback(async () => {
+    setAbsencesLoading(true);
+    setAbsencesError(null);
+    try {
+      const token = accessToken ?? undefined;
+      const filters: ParentAbsenceFilters = {
+        limit: PAGE_SIZE,
+        offset: absencesPage * PAGE_SIZE,
+      };
+      if (selectedStudent) filters.studentId = Number(selectedStudent);
+      if (selectedAbsenceStatus) filters.status = selectedAbsenceStatus as "reported" | "acknowledged";
+      if (startDate) filters.startDate = startDate;
+      if (endDate) filters.endDate = endDate;
+
+      const result = await attendanceAPI.getParentAbsences(token, filters);
+      const data = result?.data ?? result;
+      const list = Array.isArray(data?.absences) ? data.absences : [];
+      const total = typeof data?.total === "number" ? data.total : 0;
+      setParentAbsences(list);
+      setAbsencesTotal(total);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to load parent absences";
+      setAbsencesError(msg);
+      setParentAbsences([]);
+      setAbsencesTotal(0);
+      toast.error(msg);
+    } finally {
+      setAbsencesLoading(false);
+    }
+  }, [accessToken, selectedStudent, selectedAbsenceStatus, startDate, endDate, absencesPage]);
+
+  useEffect(() => {
+    if (showAbsences && !authLoading) {
+      loadParentAbsences();
+    }
+  }, [showAbsences, authLoading, selectedStudent, selectedAbsenceStatus, startDate, endDate, absencesPage, loadParentAbsences]);
+
   const hasActiveFilters =
     selectedStudent !== "" ||
     selectedBus !== "" ||
@@ -270,12 +329,32 @@ export function AttendanceView({
     startDate !== "" ||
     endDate !== "";
 
-  const formatDate = useCallback((dateString: string) => {
-    const date = new Date(dateString);
+  const formatDate = useCallback((dateValue?: string | Date | null) => {
+    if (!dateValue) return "—";
+    const date = new Date(dateValue);
+    if (isNaN(date.getTime())) return "—";
     return date.toLocaleString(undefined, {
       dateStyle: "short",
       timeStyle: "short",
     });
+  }, []);
+
+  const formatOnlyDate = useCallback((dateString: string) => {
+    if (!dateString) return "Invalid Date";
+    // DATEONLY format is YYYY-MM-DD, parse it directly
+    const parts = dateString.split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1; // months are 0-indexed
+      const day = parseInt(parts[2], 10);
+      const date = new Date(year, month, day);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString(undefined, {
+          dateStyle: "short",
+        });
+      }
+    }
+    return dateString;
   }, []);
 
   return (
@@ -305,25 +384,55 @@ export function AttendanceView({
             geofencing.
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={loading}
-          aria-label="Refresh attendance"
-        >
-          {loading ? (
-            <Loader2 className="size-4 animate-spin" aria-hidden />
-          ) : (
-            <RefreshCw className="size-4" aria-hidden />
-          )}
-          <span className="ml-2">Refresh</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={showAbsences ? "outline" : "default"}
+            size="sm"
+            onClick={() => setShowAbsences(false)}
+            aria-label="View attendance records"
+          >
+            <ClipboardList className="size-4" />
+            <span className="ml-2">Records</span>
+          </Button>
+          <Button
+            variant={showAbsences ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowAbsences(true)}
+            aria-label="View parent absences"
+          >
+            <CalendarX className="size-4" />
+            <span className="ml-2">Parent Absences</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={showAbsences ? () => { setAbsencesPage(0); loadParentAbsences(); } : handleRefresh}
+            disabled={showAbsences ? absencesLoading : loading}
+            aria-label="Refresh"
+          >
+            {showAbsences ? (absencesLoading ? (
+              <Loader2 className="size-4 animate-spin" aria-hidden />
+            ) : (
+              <RefreshCw className="size-4" aria-hidden />
+            )) : (loading ? (
+              <Loader2 className="size-4 animate-spin" aria-hidden />
+            ) : (
+              <RefreshCw className="size-4" aria-hidden />
+            ))}
+            <span className="ml-2">Refresh</span>
+          </Button>
+        </div>
       </div>
 
-      {error && (
+      {error && !showAbsences && (
         <Alert variant="destructive" role="alert">
           <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {absencesError && showAbsences && (
+        <Alert variant="destructive" role="alert">
+          <AlertDescription>{absencesError}</AlertDescription>
         </Alert>
       )}
 
@@ -331,15 +440,29 @@ export function AttendanceView({
         <CardHeader className="space-y-4 pb-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Clock className="size-5" />
-              Records
+              {showAbsences ? (
+                <>
+                  <CalendarX className="size-5" />
+                  Parent Absences
+                </>
+              ) : (
+                <>
+                  <Clock className="size-5" />
+                  Records
+                </>
+              )}
             </CardTitle>
             <span className="text-sm text-muted-foreground">
-              {loading
-                ? "Loading…"
-                : `${totalCount} record${totalCount !== 1 ? "s" : ""}`}
-              {totalCount > PAGE_SIZE &&
-                ` · Page ${currentPage + 1} of ${totalPages}`}
+              {showAbsences
+                ? (absencesLoading
+                  ? "Loading…"
+                  : `${absencesTotal} absence${absencesTotal !== 1 ? "s" : ""}`)
+                : (loading
+                  ? "Loading…"
+                  : `${totalCount} record${totalCount !== 1 ? "s" : ""}`)}
+              {showAbsences
+                ? (absencesTotal > PAGE_SIZE && ` · Page ${absencesPage + 1} of ${absencesTotalPages}`)
+                : (totalCount > PAGE_SIZE && ` · Page ${currentPage + 1} of ${totalPages}`)}
             </span>
           </div>
 
@@ -408,6 +531,7 @@ export function AttendanceView({
                   setSelectedType(v === "all" ? "" : v);
                   setPage(0);
                 }}
+                disabled={showAbsences}
               >
                 <SelectTrigger id="attendance-type" className="h-9 w-[110px]" aria-label="Filter by type">
                   <SelectValue placeholder="All" />
@@ -419,6 +543,32 @@ export function AttendanceView({
                 </SelectContent>
               </Select>
             </div>
+            {showAbsences && (
+              <>
+                <div className="h-4 w-px shrink-0 bg-border" aria-hidden />
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="absence-status" className="shrink-0 text-sm text-muted-foreground">
+                    Status
+                  </Label>
+                  <Select
+                    value={selectedAbsenceStatus || "all"}
+                    onValueChange={(v) => {
+                      setSelectedAbsenceStatus(v === "all" ? "" : v);
+                      setAbsencesPage(0);
+                    }}
+                  >
+                    <SelectTrigger id="absence-status" className="h-9 w-[130px]" aria-label="Filter by status">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="reported">Reported</SelectItem>
+                      <SelectItem value="acknowledged">Acknowledged</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
             <div className="h-4 w-px shrink-0 bg-border" aria-hidden />
             <div className="flex items-center gap-2">
               <Label htmlFor="attendance-start" className="shrink-0 text-sm text-muted-foreground">
@@ -464,7 +614,233 @@ export function AttendanceView({
           </div>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {showAbsences ? (
+            absencesLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <Skeleton
+                    key={i}
+                    className={cn("h-14 w-full", i === 0 && "rounded-t-lg")}
+                  />
+                ))}
+              </div>
+            ) : parentAbsences.length === 0 ? (
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <CalendarX className="size-6 text-muted-foreground" />
+                  </EmptyMedia>
+                  <EmptyTitle>
+                    {hasActiveFilters
+                      ? "No absences match your filters"
+                      : "No parent absences reported yet"}
+                  </EmptyTitle>
+                  <EmptyDescription>
+                    {hasActiveFilters
+                      ? "Try clearing filters or a different date range."
+                      : "Parent-reported absences will appear here when parents notify the system."}
+                  </EmptyDescription>
+                </EmptyHeader>
+                <EmptyContent>
+                  {hasActiveFilters ? (
+                    <Button variant="outline" size="sm" onClick={handleClearFilters}>
+                      Clear filters
+                    </Button>
+                  ) : (
+                    <Button variant="outline" size="sm" onClick={() => loadParentAbsences()}>
+                      <RefreshCw className="size-4" />
+                      Refresh
+                    </Button>
+                  )}
+                </EmptyContent>
+              </Empty>
+            ) : isMobile ? (
+              <div className="space-y-3">
+                {parentAbsences.map((absence) => (
+                  <Card key={absence.id} className="overflow-hidden">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={cn(
+                            "flex size-10 shrink-0 items-center justify-center rounded-full",
+                            absence.status === "reported"
+                              ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                              : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                          )}
+                        >
+                          <CalendarX className="size-5" />
+                        </div>
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <p className="font-medium">
+                            {absence.student?.full_name ?? "Unknown"}
+                            {absence.student?.grade && (
+                              <span className="ml-1 text-sm font-normal text-muted-foreground">
+                                ({absence.student.grade})
+                              </span>
+                            )}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <UserCheck className="size-3" />
+                              {absence.parent?.full_name ?? absence.parent?.name ?? "Unknown"}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="size-3" />
+                              {formatOnlyDate(absence.absence_date)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 pt-1">
+                            <Badge
+                              variant={absence.status === "reported" ? "default" : "secondary"}
+                              className={cn(
+                                absence.status === "reported" &&
+                                  "bg-amber-600 hover:bg-amber-600"
+                              )}
+                            >
+                              {absence.status === "reported" ? "Reported" : "Acknowledged"}
+                            </Badge>
+                            {absence.reason && (
+                              <span className="text-xs text-muted-foreground">
+                                {absence.reason}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[4rem]">Status</TableHead>
+                      <TableHead>Student</TableHead>
+                      <TableHead>Parent</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Reason</TableHead>
+                      <TableHead className="text-right">Reported</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {parentAbsences.map((absence) => (
+                      <TableRow key={absence.id}>
+                        <TableCell>
+                          <Badge
+                            variant={absence.status === "reported" ? "default" : "secondary"}
+                            className={cn(
+                              "font-normal",
+                              absence.status === "reported" &&
+                                "bg-amber-600 hover:bg-amber-600"
+                            )}
+                          >
+                            {absence.status === "reported" ? "Reported" : "Acknowledged"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span className="flex items-center gap-2 font-medium">
+                            <User className="size-4 text-muted-foreground" />
+                            {absence.student?.full_name ?? "Unknown"}
+                            {absence.student?.grade && (
+                              <span className="text-muted-foreground">
+                                ({absence.student.grade})
+                              </span>
+                            )}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="flex items-center gap-2 text-sm">
+                            <UserCheck className="size-3 text-muted-foreground" />
+                            {absence.parent?.full_name ?? absence.parent?.name ?? "Unknown"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatOnlyDate(absence.absence_date)}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {absence.reason || "—"}
+                        </TableCell>
+                        <TableCell className="text-right text-sm text-muted-foreground">
+                          {formatDate(absence.created_at ?? absence.createdAt)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )
+          ) : null}
+
+          {showAbsences && !absencesLoading && absencesTotal > PAGE_SIZE && (
+            <div className="mt-4 flex items-center justify-between border-t pt-4">
+              <p className="text-sm text-muted-foreground">
+                Showing {(absencesPage * PAGE_SIZE) + 1}–
+                {Math.min((absencesPage + 1) * PAGE_SIZE, absencesTotal)} of{" "}
+                {absencesTotal}
+              </p>
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (absencesPage > 0) setAbsencesPage(absencesPage - 1);
+                      }}
+                      aria-disabled={absencesPage <= 0}
+                      className={
+                        absencesPage <= 0
+                          ? "pointer-events-none opacity-50"
+                          : undefined
+                      }
+                    />
+                  </PaginationItem>
+                  {Array.from({ length: Math.min(5, absencesTotalPages) }, (_, i) => {
+                    let pageNum: number;
+                    if (absencesTotalPages <= 5) pageNum = i;
+                    else if (absencesPage < 3) pageNum = i;
+                    else if (absencesPage >= absencesTotalPages - 2)
+                      pageNum = absencesTotalPages - 5 + i;
+                    else pageNum = absencesPage - 2 + i;
+                    return (
+                      <PaginationItem key={pageNum}>
+                        <PaginationLink
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setAbsencesPage(pageNum);
+                          }}
+                          isActive={absencesPage === pageNum}
+                        >
+                          {pageNum + 1}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  })}
+                  <PaginationItem>
+                    <PaginationNext
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (absencesPage < absencesTotalPages - 1)
+                          setAbsencesPage(absencesPage + 1);
+                      }}
+                      aria-disabled={absencesPage >= absencesTotalPages - 1}
+                      className={
+                        absencesPage >= absencesTotalPages - 1
+                          ? "pointer-events-none opacity-50"
+                          : undefined
+                      }
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
+
+          {!showAbsences && loading ? (
             <div className="space-y-2">
               {Array.from({ length: 8 }).map((_, i) => (
                 <Skeleton
@@ -473,7 +849,7 @@ export function AttendanceView({
                 />
               ))}
             </div>
-          ) : attendances.length === 0 ? (
+          ) : !showAbsences && attendances.length === 0 ? (
             <Empty>
               <EmptyHeader>
                 <EmptyMedia variant="icon">
@@ -503,7 +879,7 @@ export function AttendanceView({
                 )}
               </EmptyContent>
             </Empty>
-          ) : isMobile ? (
+          ) : !showAbsences && isMobile ? (
             <div className="space-y-3">
               {attendances.map((record) => (
                 <Card key={record.id} className="overflow-hidden">
@@ -574,7 +950,7 @@ export function AttendanceView({
                 </Card>
               ))}
             </div>
-          ) : (
+          ) : !showAbsences && (
             <div className="overflow-x-auto rounded-md border">
               <Table>
                 <TableHeader>
@@ -666,7 +1042,7 @@ export function AttendanceView({
             </div>
           )}
 
-          {!loading && totalCount > PAGE_SIZE && (
+          {!showAbsences && !loading && totalCount > PAGE_SIZE && (
             <div className="mt-4 flex items-center justify-between border-t pt-4">
               <p className="text-sm text-muted-foreground">
                 Showing {(currentPage * PAGE_SIZE) + 1}–

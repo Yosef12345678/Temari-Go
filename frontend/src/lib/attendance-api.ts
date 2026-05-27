@@ -92,6 +92,47 @@ export interface Bus {
   driver_id?: number;
 }
 
+export interface ParentAbsence {
+  id: number;
+  student_id: number;
+  student?: {
+    id: number;
+    full_name: string;
+    grade?: string;
+  };
+  parent_id: number;
+  parent?: {
+    id: number;
+    full_name?: string;
+    name?: string;
+    email: string;
+  };
+  absence_date: string;
+  reason?: string | null;
+  status: 'reported' | 'acknowledged';
+  created_at: string;
+  updated_at: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ParentAbsenceFilters {
+  studentId?: number;
+  startDate?: string;
+  endDate?: string;
+  status?: 'reported' | 'acknowledged';
+  limit?: number;
+  offset?: number;
+}
+
+export interface ParentAbsenceListResponse {
+  success: boolean;
+  data: {
+    total: number;
+    absences: ParentAbsence[];
+  };
+}
+
 export const attendanceAPI = {
   /**
    * Get all attendance records with filters
@@ -244,6 +285,45 @@ export const attendanceAPI = {
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.message || 'Failed to fetch bus attendance');
+    }
+
+    return await response.json();
+  },
+
+  /**
+   * Get parent absences (admin only)
+   */
+  async getParentAbsences(
+    accessToken?: string,
+    filters?: ParentAbsenceFilters
+  ): Promise<ParentAbsenceListResponse> {
+    const params = new URLSearchParams();
+    if (filters?.studentId) params.append('studentId', filters.studentId.toString());
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.offset) params.append('offset', filters.offset.toString());
+
+    const url = `${API_BASE_URL}/api/attendance/parent-absences${params.toString() ? `?${params.toString()}` : ''}`;
+    
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to fetch parent absences');
     }
 
     return await response.json();

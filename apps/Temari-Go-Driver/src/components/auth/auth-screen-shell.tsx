@@ -26,12 +26,6 @@ export function AuthScreenShell({ subtitle, title, description, children }: Auth
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
           <View style={[styles.hero, { borderColor: theme.border, backgroundColor: theme.backgroundElement }]}>
             <AppBrand subtitle={subtitle} />
-            <View style={styles.heroCopy}>
-              <ThemedText type="smallBold" style={{ color: theme.tint }}>{t('driverSecureAccess')}</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary" style={styles.heroText}>
-                {t('driverConsoleDescription')}
-              </ThemedText>
-            </View>
           </View>
           <Card style={styles.card}>
             <View style={styles.heading}>

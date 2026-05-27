@@ -67,7 +67,6 @@ export default function DriverRegistrationScreen() {
     <AuthScreenShell
       subtitle={t('driverApplication')}
       title={t('applyToDrive')}
-      description={t('registerDescription')}
     >
       <View style={styles.notice}>
         <StatusBadge label={t('adminVerificationRequired')} tone="warning" />

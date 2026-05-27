@@ -923,5 +923,66 @@ export class AttendanceService {
 			status: a.status,
 		}));
 	}
+
+	static async getParentAbsences(filters: {
+		studentId?: number;
+		startDate?: string;
+		endDate?: string;
+		status?: 'reported' | 'acknowledged';
+		limit?: number;
+		offset?: number;
+	}) {
+		const where: any = {};
+		if (filters.studentId) where.student_id = filters.studentId;
+		if (filters.status) where.status = filters.status;
+		if (filters.startDate || filters.endDate) {
+			where.absence_date = {};
+			if (filters.startDate) where.absence_date[Op.gte] = filters.startDate;
+			if (filters.endDate) where.absence_date[Op.lte] = filters.endDate;
+		}
+
+		const { count, rows } = await ParentAbsence.findAndCountAll({
+			where,
+			include: [
+				{
+					model: Student,
+					attributes: ['id', 'full_name', 'grade'],
+				},
+				{
+					model: db.User,
+					as: 'parent',
+					attributes: ['id', 'name', 'email'],
+				},
+			],
+			order: [['absence_date', 'DESC'], ['created_at', 'DESC']],
+			limit: filters.limit || 50,
+			offset: filters.offset || 0,
+		});
+
+		return {
+			total: count,
+			absences: rows.map((a: any) => ({
+				id: a.id,
+				student_id: a.student_id,
+				student: a.student ? {
+					id: a.student.id,
+					full_name: a.student.full_name,
+					grade: a.student.grade,
+				} : null,
+				parent_id: a.parent_id,
+				parent: a.parent ? {
+					id: a.parent.id,
+					full_name: a.parent.name,
+					name: a.parent.name,
+					email: a.parent.email,
+				} : null,
+				absence_date: a.absence_date,
+				reason: a.reason,
+				status: a.status,
+				created_at: a.created_at ?? a.createdAt,
+				updated_at: a.updated_at ?? a.updatedAt,
+			})),
+		};
+	}
 }
 

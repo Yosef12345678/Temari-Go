@@ -46,7 +46,6 @@ export default function LoginScreen() {
     <AuthScreenShell
       subtitle={t('driverPortal')}
       title={t('signIn')}
-      description={t('signInDescription')}
     >
       <View style={styles.notice}>
         <StatusBadge label={t('driverOnly')} tone="info" />

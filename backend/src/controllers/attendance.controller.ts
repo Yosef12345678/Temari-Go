@@ -442,3 +442,27 @@ export const getDriverAbsences = async (req: Request, res: Response) => {
 	}
 };
 
+export const getParentAbsences = async (req: Request, res: Response) => {
+	try {
+		if (!req.user) {
+			return res.status(401).json({ success: false, code: 'UNAUTHORIZED', message: 'Access denied.' });
+		}
+		if (req.user.role !== 'admin') {
+			return res.status(403).json({ success: false, code: 'FORBIDDEN_ROLE', message: 'Only admins can view all parent absences.' });
+		}
+		const { studentId, startDate, endDate, status, limit, offset } = req.query;
+		const data = await AttendanceService.getParentAbsences({
+			studentId: studentId ? Number(studentId) : undefined,
+			startDate: startDate as string | undefined,
+			endDate: endDate as string | undefined,
+			status: status as 'reported' | 'acknowledged' | undefined,
+			limit: limit ? Number(limit) : undefined,
+			offset: offset ? Number(offset) : undefined,
+		});
+		return res.status(200).json({ success: true, data });
+	} catch (error: any) {
+		console.error('Get parent absences error:', error);
+		return res.status(500).json({ success: false, code: 'INTERNAL_ERROR', message: 'Failed to fetch parent absences.' });
+	}
+};
+
